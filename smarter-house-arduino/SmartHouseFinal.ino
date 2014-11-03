@@ -13,9 +13,9 @@
 // |--------------------------------------------------------------------------------|
 // |  0.3                Michal Sitarczuk, Ke Jia    11/10/2014    Check methods, Arduino board change
 // |--------------------------------------------------------------------------------|
-// |  0.4				Michal Sitarczuk			 02/11/2014	   Coded added to Subversion repository
+// |  0.4                Michal Sitarczuk            02/11/2014    Coded added to Subversion repository
 // |--------------------------------------------------------------------------------|
-// |				FROM NOW ON CODE REVISION IN REPOSITORY 		https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
+// |  FROM NOW ON CODE REVISION IN REPOSITORY   https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
 // |--------------------------------------------------------------------------------|
 // |
 // |________________________________________________________________________________|
