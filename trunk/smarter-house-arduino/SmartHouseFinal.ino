@@ -11,7 +11,7 @@
 // |--------------------------------------------------------------------------------|
 // |  0.2                Martin Wilhelmson           10/10/2014    MUXwrite edited
 // |--------------------------------------------------------------------------------|
-// |  0.3                Michal Sitarczuk            11/10/2014    Check methods, Arduino board change
+// |  0.3                Michal Sitarczuk, Ke Jia    11/10/2014    Check methods, Arduino board change
 // |--------------------------------------------------------------------------------|
 // |  0.4				Michal Sitarczuk			 02/11/2014	   Coded added to Subversion repository
 // |--------------------------------------------------------------------------------|
@@ -83,12 +83,8 @@ void setup()
 
 //*Changed the order of the MUXwrite-method so it corresponds to the MUX-table in lab4-PDF.
 void MUXwrite(int first, int second, int third, int fourth){
-	//*Added delays in the MUXwrite-method; why? 
-	//I get these very strange errors where things 
-	//simply stops working. if more than one property is turned on. 
-	//Talked to Haydar who advised me to do so, and it worked. 
-	//If you dont get this;great, remove it.
-	//Removed delays as slow down the loop (which we base on) -mms
+	//It works nice the way it is now; if you have troubles with it, change 20 to 50 inside delay,
+	//but do not add more delay(s) pls -mms
 	delay(20);
 	digitalWrite(MUX12, first);
 	digitalWrite(MUX13, second);
