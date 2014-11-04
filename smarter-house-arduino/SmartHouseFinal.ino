@@ -48,7 +48,7 @@ int MUX8 = 8;
 int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 23
-String allFunctions[size4] = { "fa","do","wl","st","wo","ec","tmpout","elcon","tmpin","tmproof","ldr","buzz","t2","lghtin","aled","heatroof","heatin","t1","lghout","autoac","autolo","sa","autoli"};
+String allFunctions[size4] = { "fa","do","wl","st","wo","ec","tmpout","elcon","tmpin","tmproof","ldr","buzz","t2","li","aled","heatroof","heatin","t1","lo","autoac","autolo","sa","autoli"};
 // String input
 String inMsg = "";	// saves messages from local server until gets "!" which means end of message
 char inChar;		// incoming character that is saved in inMsg
@@ -85,22 +85,24 @@ void setup()
 void MUXwrite(int first, int second, int third, int fourth){
 	//It works nice the way it is now; if you have troubles with it, change 20 to 50 inside delay,
 	//but do not add more delay(s) pls -mms
-	delay(20);
+	delay(50);
 	digitalWrite(MUX12, first);
 	digitalWrite(MUX13, second);
 	digitalWrite(MUX11, third);
 	digitalWrite(MUX8, fourth);
-	delay(20);
+	delay(50);
 }
 
 void loop()
 {
-	if (FirstRun){\
-		MUXwrite(1, 1, 0, 1);//TURNS OFF heating element
-		MUXwrite(1, 1, 0, 0);//TURNS OFF heating element wind
-		MUXwrite(0, 0, 1, 0);
-		MUXwrite(0, 1, 1, 1);
+	if (FirstRun){
+		MUXwrite(1, 1, 0, 1);//Turns OFF heating element
+		MUXwrite(1, 1, 0, 0);//Turns OFF heating element wind
+		MUXwrite(1, 0, 1, 0);//Turns OFF inside light
+		MUXwrite(1, 1, 1, 1);//Turns OFF outside light
+		Serial.println("autochkstart!");
 		CheckAll();
+		Serial.println("eol!");
 		FirstRun = false;
 	}
 	SerialEvent();
@@ -140,12 +142,87 @@ void TestRequest(String command){
 	Serial.println("Test requested");
 }
 void CheckRequest(String command){
-	Serial.println("Check requested");
-	CheckAll();
+	//Serial.println("Check requested"); //debug msg
+	if (command.startsWith("all")){
+		CheckAll();
+	}
+	else if (command.startsWith("fa")){
+		Serial.println(CheckStatus("fa"));
+	}
+	else if (command.startsWith("do")){
+		Serial.println(command);
+		Serial.println(CheckStatus("do"));
+	}
+	else if (command.startsWith("wl")){
+		Serial.println(CheckStatus("wl"));
+	}
+	else if (command.startsWith("st")){
+		Serial.println(CheckStatus("st"));
+	}
+	else if (command.startsWith("wo")){
+		Serial.println(CheckStatus("wo"));
+	}
+	else if (command.startsWith("ec")){
+		Serial.println(CheckStatus("ec"));
+	}
+	else if (command.startsWith("tmpout")){
+		Serial.println(CheckStatus("tmpout"));
+	}
+	else if (command.startsWith("elcon")){
+		Serial.println(CheckStatus("elcon"));
+	}
+	else if (command.startsWith("tmpin")){
+		Serial.println(CheckStatus("tmpin"));
+	}
+	else if (command.startsWith("tmproof")){
+		Serial.println(CheckStatus("tmproof"));
+	}
+	else if (command.startsWith("ldr")){
+		Serial.println(CheckStatus("ldr"));
+	}
+	else if (command.startsWith("buzz")){
+		Serial.println(CheckStatus("buzz"));
+	}
+	else if (command.startsWith("t2")){
+		Serial.println(CheckStatus("t2"));
+	}
+	else if (command.startsWith("li")){
+		Serial.println(CheckStatus("li"));
+	}
+	else if (command.startsWith("aled")){
+		Serial.println(CheckStatus("aled"));
+	}
+	else if (command.startsWith("heatroof")){
+		Serial.println(CheckStatus("heatroof"));
+	}
+	else if (command.startsWith("heatin")){
+		Serial.println(CheckStatus("heatin"));
+	}
+	else if (command.startsWith("t1")){
+		Serial.println(CheckStatus("t1"));
+	}
+	else if (command.startsWith("lo")){
+		Serial.println(CheckStatus("lo"));
+	}
+	else if (command.startsWith("autoac")){
+		Serial.println(CheckStatus("autoac"));
+	}
+	else if (command.startsWith("autolo")){
+		Serial.println(CheckStatus("autolo"));
+	}
+	else if (command.startsWith("sa")){
+		Serial.println(CheckStatus("sa"));
+	}
+	else if (command.startsWith("autoli")){
+		Serial.println(CheckStatus("autoli"));
+	}
+	else{
+		Serial.println(CheckStatus("error_Invalid command!"));
+	}
 }
 void MsgHandler(String command){
 	if (command.equals("sa_on")){
-		if (digitalRead(DoorIsOpenedPin) == HIGH || digitalRead(WindowIsOpenedPin) == LOW) {
+		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH) {
 			Serial.println("error_Door and windows must be closed to activate!");
 		}
 		else {
@@ -162,65 +239,80 @@ void MsgHandler(String command){
 }
 void CheckAll(){
 	for (int i = 0; i < size4; i++){
-		CheckStatus(allFunctions[i]);
+		Serial.println(CheckStatus(allFunctions[i]));
 	}
 }
 
-void CheckStatus(String what){
-	Serial.println(what);
+String CheckStatus(String what){
+	//Serial.println(what); //debug msg
 	if (what.equals("fa")){
 		FireAlarm = digitalRead(FireAlarmPin);
 		if (FireAlarm == HIGH){
-			Serial.println("fa_on!");
+			//Serial.println("fa_on!");
+			return "fa_alarm!";
 		}
 		else
-			Serial.println("fa_off!");
+			//Serial.println("fa_off!");
+			return "fa_off!";
 	}
 	else if (what.equals("do")){
 		DoorIsOpen = digitalRead(DoorIsOpenedPin);
 		if (DoorIsOpen == LOW){
-			Serial.println("do_on!");
+			//Serial.println("do_on!");
+			return "do_on!";
 		}
 		else
-			Serial.println("do_off!");
+			//Serial.println("do_off!");
+			return "do_off!";
 	}
 	else if (what.equals("wl")){
 		WaterLeakage = digitalRead(WaterLeakagePin);
 		if (WaterLeakage == HIGH){
-			Serial.println("wl_on!");
+			//Serial.println("wl_on!");
+			return "wl_on!";
 		}
 		else
-			Serial.println("wl_off!");
+			//Serial.println("wl_off!");
+			return "wl_off!";
 
 	}
 	else if (what.equals("st")){
 		StoveOn = digitalRead(StoveOnPin);
 		if (StoveOn == HIGH){
-			Serial.println("st_on!");
+			//Serial.println("st_on!");
+			return "st_on!";
 		}
 		else
-			Serial.println("st_off!");
+			//Serial.println("st_off!");
+			return "st_off!";
 	}
 	else if (what.equals("wo")){
 		WindowIsOpened = digitalRead(WindowIsOpenedPin);
 		if (WindowIsOpened == HIGH){
-			Serial.println("wo_on!");
+			//Serial.println("wo_on!");
+			return "wo_on!";
 		}
 		else
-			Serial.println("wo_off!");
+			//Serial.println("wo_off!");
+			return "wo_off!";
 	}
 	else if (what.equals("ec")){
 		ElectricityCut = digitalRead(ElectricityCutPin);
 		if (ElectricityCut == HIGH){
-			Serial.println("ec_on!");
+			//Serial.println("ec_on!");
+			return ".";
 		}
 		else
-			Serial.println("ec_off!");
+			//Serial.println("ec_off!");
+			return ".";
 	}
 	else if (what.equals("tmpout")){
 		TempOut = analogRead(TempOutPin) * 5 / 1024.0; TempOut = TempOut - 0.5; TempOut = TempOut / 0.01;
-		Serial.println("tmpout_"+(String)TempOut);
+		//Serial.println("tmpout_" + (String)TempOut);
+		return ".";
 	}
-	else
-		Serial.println("Unknown or empty command");
+	else{
+		//Serial.println("Unknown or empty command");
+		return "error_Unknown or empty command!";
+	}
 }
