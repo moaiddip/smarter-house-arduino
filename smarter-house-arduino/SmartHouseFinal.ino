@@ -156,7 +156,8 @@ void MsgHandler(String command){
 		SecurityAlarm = false;
 	}
 	else {
-		Serial.println("Syntax error. \t\"" + command + "\"\t Unknown command");
+		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
+		Serial.println("error_Syntax error. Unknown command!");
 	}
 }
 void CheckAll(){
