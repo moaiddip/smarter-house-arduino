@@ -1,4 +1,4 @@
- // Device Group proudly presents its part of the work on the
+﻿ // Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
@@ -146,7 +146,7 @@ void CheckRequest(String command){
 void MsgHandler(String command){
 	if (command.equals("sa_on")){
 		if (digitalRead(DoorIsOpenedPin) == HIGH || digitalRead(WindowIsOpenedPin) == LOW) {
-			Serial.println("Door and windows must be closed to activate");
+			Serial.println("error_Door and windows must be closed to activate!");
 		}
 		else {
 			SecurityAlarm = true;
