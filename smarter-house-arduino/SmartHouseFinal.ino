@@ -54,6 +54,8 @@ char inChar;		// incoming character that is saved in inMsg
 					// initial conditions
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
+boolean StoveState;
+boolean saTrig, faTrig, wlTrig = false;
 // integers			// (holding values from pins)
 int WindowIsOpened;
 int FireAlarm;
@@ -62,7 +64,7 @@ int WaterLeakage;
 int StoveOn;
 int ElectricityCut;
 double TempOut;
-boolean StoveState;
+long alarmReportTimer;
 
 void setup()
 {
@@ -84,12 +86,13 @@ void setup()
 void MUXwrite(int first, int second, int third, int fourth){
 	//It works nice the way it is now; if you have troubles with it, change 20 to 50 inside delay,
 	//but do not add more delay(s) pls -mms
-	delay(50);
+	delay(100);
 	digitalWrite(MUX12, first);
 	digitalWrite(MUX13, second);
 	digitalWrite(MUX11, third);
 	digitalWrite(MUX8, fourth);
-	delay(50);
+	//Serial.println((String)first + " " + (String)second + " " + (String)third + " " + (String)fourth);
+	delay(100);
 }
 
 void loop()
@@ -106,6 +109,7 @@ void loop()
 		Serial.println("autochkstart!");
 		CheckAll();
 		Serial.println("eol!");
+		alarmReportTimer = millis();
 		FirstRun = false;
 	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
@@ -116,27 +120,28 @@ void loop()
 	//-------------------------------------------------------------------
 	SerialEvent();
 	UpdateDevicesStatus();
+	if (millis() - alarmReportTimer > 5000 ){
+		alarmReportTimer = millis();
+		if (wlTrig){
+			Serial.println("wl_alarm!");
+		}
+		if (faTrig){
+			Serial.println("fa_alarm!");
+		}
+		if (saTrig){
+			Serial.println("sa_alarm!");
+		}
+	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
 			MUXwrite(1, 0, 0, 0);
+			saTrig = true;
 		}
 	}
-	else if (!SecurityAlarm){
-		MUXwrite(0, 0, 0, 0);
-		MUXwrite(1, 0, 1, 1);
-	}
-	if (FireAlarm == HIGH){
-		MUXwrite(1, 0, 0, 0);
-	}
-	else if (FireAlarm == LOW){
+	if (!faTrig && !wlTrig && !saTrig){
 		MUXwrite(0, 0, 0, 0);
 	}
-	if (WaterLeakage == 1){
-		MUXwrite(1, 0, 0, 0);
-	}
-	if (WaterLeakage == 0){
-		MUXwrite(0, 0, 0, 0);
-	}if (StoveOn == 1){
+	if (StoveOn == 1){
 		StoveState=true;
 	}
 	if (StoveOn == 0){
@@ -262,6 +267,9 @@ void MsgHandler(String command){
 	}
 	else if (command.equals("sa_off")){
 		SecurityAlarm = false;
+		saTrig = false;
+		wlTrig = false;
+		faTrig = false;
 	}
 	else {
 		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
@@ -285,7 +293,9 @@ String CheckStatus(String what){
 	if (what.equals("fa")){
 		FireAlarm = digitalRead(FireAlarmPin);
 		if (FireAlarm == HIGH){
-			//Serial.println("fa_on!");
+			//Serial.println("fa_on!"); //debug msg
+			MUXwrite(1, 0, 0, 0);
+			faTrig = true;
 			return "fa_alarm!";
 		}
 		else
@@ -306,6 +316,8 @@ String CheckStatus(String what){
 		WaterLeakage = digitalRead(WaterLeakagePin);
 		if (WaterLeakage == HIGH){
 			//Serial.println("wl_on!");
+			MUXwrite(1, 0, 0, 0);
+			wlTrig = true;
 			return "wl_on!";
 		}
 		else
