@@ -47,6 +47,7 @@ void TestRequest(String command);
 void CheckRequest(String command);
 void MsgHandler(String command);
 void CheckAll();
+void UpdateDevicesStatus();
 String CheckStatus(String what);
 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\cores\arduino\arduino.h"
