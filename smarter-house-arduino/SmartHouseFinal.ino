@@ -1,4 +1,4 @@
-﻿ // Device Group proudly presents its part of the work on the
+ // Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
@@ -64,11 +64,12 @@ int WaterLeakage;
 int StoveOn;
 int ElectricityCut;
 double TempOut;
+boolean StoveState;
 
 void setup()
 {
 	Serial.begin(115200);
-	inMsg.reserve(100);
+	inMsg.reserve(50);
 	//Settings pinMode
 	for (int i = 0; i<size1; i++){
 		pinMode(digitalInputPins[i], INPUT);
@@ -100,12 +101,23 @@ void loop()
 		MUXwrite(1, 1, 0, 0);//Turns OFF heating element wind
 		MUXwrite(1, 0, 1, 0);//Turns OFF inside light
 		MUXwrite(1, 1, 1, 1);//Turns OFF outside light
+		MUXwrite(0, 0, 0, 0);//Turns buzzer off
+		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
+		//MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
+		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
 		Serial.println("autochkstart!");
 		CheckAll();
 		Serial.println("eol!");
 		FirstRun = false;
 	}
+	//Keeping MUX values stable by setting T2 to off every loop iteration
+	digitalWrite(MUX12, 1);
+	digitalWrite(MUX13, 0);
+	digitalWrite(MUX11, 0);
+	digitalWrite(MUX8, 1);
+	//-------------------------------------------------------------------
 	SerialEvent();
+	UpdateDevicesStatus();
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
 			MUXwrite(1, 0, 0, 0);
@@ -113,6 +125,23 @@ void loop()
 	}
 	if (!SecurityAlarm){
 		MUXwrite(0, 0, 0, 0);
+	}
+	if (FireAlarm == 1){
+		MUXwrite(1, 0, 0, 0);
+	}
+	if (FireAlarm == 0){
+		MUXwrite(0, 0, 0, 0);
+	}
+	if (WaterLeakage == 1){
+		MUXwrite(1, 0, 0, 0);
+	}
+	if (WaterLeakage == 0){
+		MUXwrite(0, 0, 0, 0);
+	}if (StoveOn == 1){
+		StoveState=true;
+	}
+	if (StoveOn == 0){
+		StoveState == false;
 	}
 }
 
@@ -132,6 +161,7 @@ void SerialEvent(){
 			else{
 				MsgHandler(inMsg);
 			}
+			CheckRequest(inMsg);
 			inMsg = "";
 			break;
 		}
@@ -222,7 +252,7 @@ void CheckRequest(String command){
 }
 void MsgHandler(String command){
 	if (command.equals("sa_on")){
-		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH) {
+		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH||digitalRead(StoveOnPin)==HIGH) {
 			Serial.println("error_Door and windows must be closed to activate!");
 		}
 		else {
@@ -242,6 +272,12 @@ void CheckAll(){
 		Serial.println(CheckStatus(allFunctions[i]));
 	}
 }
+void UpdateDevicesStatus(){
+	for (int i = 0; i < size4; i++){
+		CheckStatus(allFunctions[i]);
+	}
+}
+
 
 String CheckStatus(String what){
 	//Serial.println(what); //debug msg
@@ -305,6 +341,15 @@ String CheckStatus(String what){
 		else
 			//Serial.println("ec_off!");
 			return ".";
+	}
+	else if (what.equals("sa")){
+		if (SecurityAlarm){
+			return "sa_on!";
+		}
+		else
+		{
+			return "sa_off!";
+		}
 	}
 	else if (what.equals("tmpout")){
 		TempOut = analogRead(TempOutPin) * 5 / 1024.0; TempOut = TempOut - 0.5; TempOut = TempOut / 0.01;
