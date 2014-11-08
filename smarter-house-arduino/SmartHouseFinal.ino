@@ -1,4 +1,4 @@
- // Device Group proudly presents its part of the work on the
+﻿ // Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
@@ -16,8 +16,6 @@
 // |  0.4                Michal Sitarczuk            02/11/2014    Coded added to Subversion repository
 // |--------------------------------------------------------------------------------|
 // |  FROM NOW ON CODE REVISION IN REPOSITORY   https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
-// |--------------------------------------------------------------------------------|
-// |
 // |________________________________________________________________________________|
 
 // DIGITAL INPUT PINS
@@ -68,7 +66,7 @@ boolean StoveState;
 
 void setup()
 {
-	Serial.begin(115200);
+	Serial.begin(38400);
 	inMsg.reserve(50);
 	//Settings pinMode
 	for (int i = 0; i<size1; i++){
