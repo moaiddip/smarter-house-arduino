@@ -55,7 +55,8 @@ char inChar;		// incoming character that is saved in inMsg
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
 boolean StoveState;
-boolean saTrig, faTrig, wlTrig = false;
+boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
+boolean autoli, liON, autolo, loON;
 // integers			// (holding values from pins)
 int WindowIsOpened;
 int FireAlarm;
@@ -186,7 +187,7 @@ void CheckRequest(String command){
 		Serial.println(CheckStatus("fa"));
 	}
 	else if (command.startsWith("do")){
-		Serial.println(command);
+		//Serial.println(command);//debug msg
 		Serial.println(CheckStatus("do"));
 	}
 	else if (command.startsWith("wl")){
@@ -271,6 +272,32 @@ void MsgHandler(String command){
 		wlTrig = false;
 		faTrig = false;
 	}
+	if (command.equals("li_on")){
+		if (autoli){
+			Serial.println("error_Auto Light option is ON.");
+		}
+		else{
+		MUXwrite(0, 0, 1, 0);
+		liON = true;
+		}
+	}
+	else if (command.equals("li_off")){
+		MUXwrite(1, 0, 1, 0);
+		liON = false;
+	}
+	if (command.equals("lo_on")){
+		if (autolo){
+			Serial.println("error_Auto Light option is ON.");
+		}
+		else{
+			MUXwrite(0, 1, 1, 1);
+			loON = true;
+		}
+	}
+	else if (command.equals("lo_off")){
+		MUXwrite(1, 1, 1, 1);
+		loON = false;
+	}
 	else {
 		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
 		Serial.println("error_Syntax error. Unknown command!");
@@ -354,6 +381,20 @@ String CheckStatus(String what){
 		else
 			//Serial.println("ec_off!");
 			return ".";
+	}
+	else if (what.equals("li")){
+		if (liON){
+			return "li_on!";
+		}
+		else
+			return "li_off!";
+	}
+	else if (what.equals("lo")){
+		if (loON){
+			return "lo_on!";
+		}
+		else
+			return "lo_off!";
 	}
 	else if (what.equals("sa")){
 		if (SecurityAlarm){
