@@ -101,7 +101,7 @@ void loop()
 		MUXwrite(1, 1, 1, 1);//Turns OFF outside light
 		MUXwrite(0, 0, 0, 0);//Turns buzzer off
 		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
-		//MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
+		MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
 		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
 		Serial.println("autochkstart!");
 		CheckAll();
@@ -109,10 +109,10 @@ void loop()
 		FirstRun = false;
 	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
-	digitalWrite(MUX12, 1);
-	digitalWrite(MUX13, 0);
-	digitalWrite(MUX11, 0);
-	digitalWrite(MUX8, 1);
+	//digitalWrite(MUX12, 1);
+	//digitalWrite(MUX13, 0);
+	//digitalWrite(MUX11, 0);
+	//digitalWrite(MUX8, 1);
 	//-------------------------------------------------------------------
 	SerialEvent();
 	UpdateDevicesStatus();
@@ -121,13 +121,14 @@ void loop()
 			MUXwrite(1, 0, 0, 0);
 		}
 	}
-	if (!SecurityAlarm){
+	else if (!SecurityAlarm){
 		MUXwrite(0, 0, 0, 0);
+		MUXwrite(1, 0, 1, 1);
 	}
-	if (FireAlarm == 1){
+	if (FireAlarm == HIGH){
 		MUXwrite(1, 0, 0, 0);
 	}
-	if (FireAlarm == 0){
+	else if (FireAlarm == LOW){
 		MUXwrite(0, 0, 0, 0);
 	}
 	if (WaterLeakage == 1){
@@ -159,7 +160,9 @@ void SerialEvent(){
 			else{
 				MsgHandler(inMsg);
 			}
-			CheckRequest(inMsg);
+			if (!inMsg.endsWith("chk")){
+				CheckRequest(inMsg);
+			}
 			inMsg = "";
 			break;
 		}
@@ -359,4 +362,3 @@ String CheckStatus(String what){
 		return "error_Unknown or empty command!";
 	}
 }
-//hello
