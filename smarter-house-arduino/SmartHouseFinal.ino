@@ -1,4 +1,4 @@
-﻿ // Device Group proudly presents its part of the work on the
+﻿// Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
@@ -46,24 +46,22 @@ int MUX8 = 8;
 int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 23
-String allFunctions[size4] = { "fa","do","wl","st","wo","ec","tmpout","elcon","tmpin","tmproof","ldr","buzz","t2","li","aled","heatroof","heatin","t1","lo","autoac","autolo","sa","autoli"};
+String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "ldr", "buzz", "t2", "li", "aled", "heatroof", "heatin", "t1", "lo", "autoac", "autolo", "sa", "autoli" };
 // String input
 String inMsg = "";	// saves messages from local server until gets "!" which means end of message
 char inChar;		// incoming character that is saved in inMsg
 // booleans			// moslty to help in logic or to keep track of virtual functions (not readeble from hardware); setting
-					// initial conditions
+// initial conditions
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
-boolean StoveState=false;
-boolean StoveCurrentState=false;
 boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
 boolean autoli, liON, autolo, loON = false;
 // integers			// (holding values from pins)
-int WindowIsOpened;
+int WindowIsOpened,WindowCurrentState=0;
 int FireAlarm;
 int DoorIsOpen;
 int WaterLeakage;
-int StoveOn;
+int StoveOn, StoveCurrentState = 0;
 int ElectricityCut;
 int LDRsensorIn;
 int LDRsensorOut;
@@ -75,13 +73,13 @@ void setup()
 	Serial.begin(38400);
 	inMsg.reserve(50);
 	//Settings pinMode
-	for (int i = 0; i<size1; i++){
+	for (int i = 0; i < size1; i++){
 		pinMode(digitalInputPins[i], INPUT);
 	}
-	for (int i = 0; i<size2; i++){
+	for (int i = 0; i < size2; i++){
 		pinMode(analogInputPins[i], INPUT);
 	}
-	for (int i = 0; i<size3; i++){
+	for (int i = 0; i < size3; i++){
 		pinMode(MUXpins[i], OUTPUT);
 	}
 }
@@ -124,7 +122,7 @@ void loop()
 	//-------------------------------------------------------------------
 	SerialEvent();
 	UpdateDevicesStatus();
-	if (millis() - alarmReportTimer > 5000 ){
+	if (millis() - alarmReportTimer > 5000){
 		alarmReportTimer = millis();
 		if (wlTrig){
 			Serial.println("wl_alarm!");
@@ -135,7 +133,7 @@ void loop()
 		if (saTrig){
 			Serial.println("sa_alarm!");
 		}
-		
+
 	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
@@ -146,34 +144,46 @@ void loop()
 	if (!faTrig && !wlTrig && !saTrig){
 		MUXwrite(0, 0, 0, 0);
 	}
-		if (StoveOnPin == 1){
-			StoveCurrentState = true;
+	StoveCurrentState = digitalRead(StoveOnPin);
+	if (StoveOn!=StoveCurrentState){
+		if (StoveCurrentState == HIGH){
+			Serial.println("st_on!");
 		}
-		else if(StoveOnPin == 0){
-			StoveCurrentState == false;
+		else if (StoveCurrentState == LOW){
+			Serial.println("st_off!");
 		}
-		if (autolo==true){
-			LDRsensorOut = analogRead(LDRpin);
-			if (LDRsensorOut <= 300){
-				MUXwrite(0, 1, 1, 1);
-				loON = true;
-			}
-			else if (LDRsensorOut > 300){
-				MUXwrite(1, 1, 1, 1);
-				loON = false;
-			}
+	}
+	WindowCurrentState = digitalRead(WindowIsOpenedPin);
+	if (WindowIsOpened != WindowCurrentState){
+		if (WindowCurrentState == HIGH){
+			Serial.println("wo_on!");
 		}
-		if (autoli == true){
-			LDRsensorIn = analogRead(LDRpin);
-			if (LDRsensorIn <= 300){
-				MUXwrite(0, 0, 1, 0);
-				liON = true;
-			}
-			else if (LDRsensorIn > 300){
-				MUXwrite(1, 0, 1, 0);
-				liON = false;
-			}
+		else if (WindowCurrentState == LOW){
+			Serial.println("wo_off!");
 		}
+	}
+	if (autolo == true){
+		LDRsensorOut = analogRead(LDRpin);
+		if (LDRsensorOut <= 300){
+			MUXwrite(0, 1, 1, 1);
+			loON = true;
+		}
+		else if (LDRsensorOut > 300){
+			MUXwrite(1, 1, 1, 1);
+			loON = false;
+		}
+	}
+	if (autoli == true){
+		LDRsensorIn = analogRead(LDRpin);
+		if (LDRsensorIn <= 300){
+			MUXwrite(0, 0, 1, 0);
+			liON = true;
+		}
+		else if (LDRsensorIn > 300){
+			MUXwrite(1, 0, 1, 0);
+			liON = false;
+		}
+	}
 
 }
 
@@ -196,7 +206,7 @@ void SerialEvent(){
 			if (!inMsg.endsWith("chk")){
 				CheckRequest(inMsg);
 			}
-			
+
 			inMsg = "";
 			break;
 		}
@@ -287,7 +297,7 @@ void CheckRequest(String command){
 }
 void MsgHandler(String command){
 	if (command.equals("sa_on")){
-		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH||digitalRead(StoveOnPin)==HIGH) {
+		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH || digitalRead(StoveOnPin) == HIGH) {
 			Serial.println("error_Door and windows must be closed to activate!");
 		}
 		else {
@@ -305,8 +315,8 @@ void MsgHandler(String command){
 			Serial.println("error_Auto Light option is ON.");
 		}
 		else{
-		MUXwrite(0, 0, 1, 0);
-		liON = true;
+			MUXwrite(0, 0, 1, 0);
+			liON = true;
 		}
 	}
 	else if (command.equals("li_off")){
@@ -327,31 +337,31 @@ void MsgHandler(String command){
 		loON = false;
 	}
 
-	 else if (command.equals("autolo_on")){
+	else if (command.equals("autolo_on")){
 		autolo = true;
-	 }
-	 else if (command.equals("autolo_off"))
-	 {
-		 autolo = false;
-		 if (loON){
-			 MUXwrite(0, 1, 1, 1);
-		 }
-		 else if (!loON){
-			 MUXwrite(1, 1, 1, 1);
-		 }
-	 }
-	 else if (command.equals("autoli_on")){
-		 autoli = true;
-	 }
-	 else if (command.equals("autoli_off")){
-		 autoli = false;
-		 if (liON){
-			 MUXwrite(0,0,1,0);
-		 }
-		 else if (!liON){
-			 MUXwrite(1,0,1,0);
-		 }
-	 }
+	}
+	else if (command.equals("autolo_off"))
+	{
+		autolo = false;
+		if (loON){
+			MUXwrite(0, 1, 1, 1);
+		}
+		else if (!loON){
+			MUXwrite(1, 1, 1, 1);
+		}
+	}
+	else if (command.equals("autoli_on")){
+		autoli = true;
+	}
+	else if (command.equals("autoli_off")){
+		autoli = false;
+		if (liON){
+			MUXwrite(0, 0, 1, 0);
+		}
+		else if (!liON){
+			MUXwrite(1, 0, 1, 0);
+		}
+	}
 	else {
 		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
 		Serial.println("error_Syntax error. Unknown command!");
@@ -416,8 +426,8 @@ String CheckStatus(String what){
 		else
 			//Serial.println("st_off!");
 			return "st_off!";
-	
-		
+
+
 	}
 	else if (what.equals("wo")){
 		WindowIsOpened = digitalRead(WindowIsOpenedPin);
@@ -483,6 +493,7 @@ String CheckStatus(String what){
 			return "autoli_off!";
 		}
 	}
+
 	else{
 		//Serial.println("Unknown or empty command");
 		return "error_Unknown or empty command!";
