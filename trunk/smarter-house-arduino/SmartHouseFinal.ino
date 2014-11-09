@@ -54,9 +54,10 @@ char inChar;		// incoming character that is saved in inMsg
 					// initial conditions
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
-boolean StoveState;
+boolean StoveState=false;
+boolean StoveCurrentState=false;
 boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
-boolean autoli, liON, autolo, loON;
+boolean autoli, liON, autolo, loON = false;
 // integers			// (holding values from pins)
 int WindowIsOpened;
 int FireAlarm;
@@ -64,6 +65,8 @@ int DoorIsOpen;
 int WaterLeakage;
 int StoveOn;
 int ElectricityCut;
+int LDRsensorIn;
+int LDRsensorOut;
 double TempOut;
 long alarmReportTimer;
 
@@ -132,6 +135,7 @@ void loop()
 		if (saTrig){
 			Serial.println("sa_alarm!");
 		}
+		
 	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
@@ -142,12 +146,35 @@ void loop()
 	if (!faTrig && !wlTrig && !saTrig){
 		MUXwrite(0, 0, 0, 0);
 	}
-	if (StoveOn == 1){
-		StoveState=true;
-	}
-	if (StoveOn == 0){
-		StoveState == false;
-	}
+		if (StoveOnPin == 1){
+			StoveCurrentState = true;
+		}
+		else if(StoveOnPin == 0){
+			StoveCurrentState == false;
+		}
+		if (autolo==true){
+			LDRsensorOut = analogRead(LDRpin);
+			if (LDRsensorOut <= 300){
+				MUXwrite(0, 1, 1, 1);
+				loON = true;
+			}
+			else if (LDRsensorOut > 300){
+				MUXwrite(1, 1, 1, 1);
+				loON = false;
+			}
+		}
+		if (autoli == true){
+			LDRsensorIn = analogRead(LDRpin);
+			if (LDRsensorIn <= 300){
+				MUXwrite(0, 0, 1, 0);
+				liON = true;
+			}
+			else if (LDRsensorIn > 300){
+				MUXwrite(1, 0, 1, 0);
+				liON = false;
+			}
+		}
+
 }
 
 void SerialEvent(){
@@ -169,6 +196,7 @@ void SerialEvent(){
 			if (!inMsg.endsWith("chk")){
 				CheckRequest(inMsg);
 			}
+			
 			inMsg = "";
 			break;
 		}
@@ -272,7 +300,7 @@ void MsgHandler(String command){
 		wlTrig = false;
 		faTrig = false;
 	}
-	if (command.equals("li_on")){
+	else if (command.equals("li_on")){
 		if (autoli){
 			Serial.println("error_Auto Light option is ON.");
 		}
@@ -285,7 +313,7 @@ void MsgHandler(String command){
 		MUXwrite(1, 0, 1, 0);
 		liON = false;
 	}
-	if (command.equals("lo_on")){
+	else if (command.equals("lo_on")){
 		if (autolo){
 			Serial.println("error_Auto Light option is ON.");
 		}
@@ -298,6 +326,32 @@ void MsgHandler(String command){
 		MUXwrite(1, 1, 1, 1);
 		loON = false;
 	}
+
+	 else if (command.equals("autolo_on")){
+		autolo = true;
+	 }
+	 else if (command.equals("autolo_off"))
+	 {
+		 autolo = false;
+		 if (loON){
+			 MUXwrite(0, 1, 1, 1);
+		 }
+		 else if (!loON){
+			 MUXwrite(1, 1, 1, 1);
+		 }
+	 }
+	 else if (command.equals("autoli_on")){
+		 autoli = true;
+	 }
+	 else if (command.equals("autoli_off")){
+		 autoli = false;
+		 if (liON){
+			 MUXwrite(0,0,1,0);
+		 }
+		 else if (!liON){
+			 MUXwrite(1,0,1,0);
+		 }
+	 }
 	else {
 		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
 		Serial.println("error_Syntax error. Unknown command!");
@@ -357,10 +411,13 @@ String CheckStatus(String what){
 		if (StoveOn == HIGH){
 			//Serial.println("st_on!");
 			return "st_on!";
+
 		}
 		else
 			//Serial.println("st_off!");
 			return "st_off!";
+	
+		
 	}
 	else if (what.equals("wo")){
 		WindowIsOpened = digitalRead(WindowIsOpenedPin);
@@ -409,6 +466,22 @@ String CheckStatus(String what){
 		TempOut = analogRead(TempOutPin) * 5 / 1024.0; TempOut = TempOut - 0.5; TempOut = TempOut / 0.01;
 		//Serial.println("tmpout_" + (String)TempOut);
 		return ".";
+	}
+	else if (what.equals("autolo")){
+		if (autolo){
+			return"autolo_on!";
+		}
+		else if (!autolo){
+			return"autolo_off!";
+		}
+	}
+	else if (what.equals("autoli")){
+		if (autoli){
+			return "autoli_on!";
+		}
+		else if (!autoli){
+			return "autoli_off!";
+		}
 	}
 	else{
 		//Serial.println("Unknown or empty command");
