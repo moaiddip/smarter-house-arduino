@@ -3,19 +3,19 @@
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
 // |--------------------------------------------------------------------------------|
-// |                            VERSION CONTROL HISTORY
+// | VERSION CONTROL HISTORY
 // |--------------------------------------------------------------------------------|
-// |  VERSION    |              AUTHORs            |    DATE    |MAJOR CHANGE/UPDATE
+// | VERSION | AUTHORs | DATE |MAJOR CHANGE/UPDATE
 // |--------------------------------------------------------------------------------|
-// |  0.1                Michal Sitarczuk            03/10/2014    initialization
+// | 0.1 Michal Sitarczuk 03/10/2014 initialization
 // |--------------------------------------------------------------------------------|
-// |  0.2                Martin Wilhelmson           10/10/2014    MUXwrite edited
+// | 0.2 Martin Wilhelmson 10/10/2014 MUXwrite edited
 // |--------------------------------------------------------------------------------|
-// |  0.3                Michal Sitarczuk, Ke Jia    11/10/2014    Check methods, Arduino board change
+// | 0.3 Michal Sitarczuk, Ke Jia 11/10/2014 Check methods, Arduino board change
 // |--------------------------------------------------------------------------------|
-// |  0.4                Michal Sitarczuk            02/11/2014    Coded added to Subversion repository
+// | 0.4 Michal Sitarczuk 02/11/2014 Coded added to Subversion repository
 // |--------------------------------------------------------------------------------|
-// |  FROM NOW ON CODE REVISION IN REPOSITORY   https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
+// | FROM NOW ON CODE REVISION IN REPOSITORY https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
 // |________________________________________________________________________________|
 
 // DIGITAL INPUT PINS
@@ -45,34 +45,35 @@ int MUX11 = 11;
 int MUX8 = 8;
 int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
-#define size4 23
-String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "ldr", "buzz", "t2", "li", "aled", "heatroof", "heatin", "t1", "lo", "autoac", "autolo", "sa", "autoli" };
+#define size4 24
+String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "ldr", "buzz", "t2", "li", "aled", "heatroof", "heatin", "t1", "lo", "autoac", "autolo", "sa", "autoli", "fan" };
 // String input
-String inMsg = "";	// saves messages from local server until gets "!" which means end of message
-char inChar;		// incoming character that is saved in inMsg
-// booleans			// moslty to help in logic or to keep track of virtual functions (not readeble from hardware); setting
+String inMsg = ""; // saves messages from local server until gets "!" which means end of message
+char inChar; // incoming character that is saved in inMsg
+// booleans // moslty to help in logic or to keep track of virtual functions (not readeble from hardware); setting
 // initial conditions
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
 boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
-boolean autoli, liON, autolo, loON = false;
-// integers			// (holding values from pins)
-int WindowIsOpened,WindowCurrentState=0;
+boolean autoli, liON, autolo, loON, autoAC = false;
+// integers // (holding values from pins)
+int WindowIsOpened, WindowCurrentState = 0;
 int FireAlarm;
 int DoorIsOpen;
 int WaterLeakage;
 int StoveOn, StoveCurrentState = 0;
 int ElectricityCut;
-int LDRsensorIn;
-int LDRsensorOut;
+int LDRsensor;
+int FanSpeed = 0;
 double TempOut;
 long alarmReportTimer;
 
 void setup()
 {
 	Serial.begin(38400);
-	inMsg.reserve(50);
+	inMsg.reserve(10);
 	//Settings pinMode
+	pinMode(FanPin, OUTPUT);
 	for (int i = 0; i < size1; i++){
 		pinMode(digitalInputPins[i], INPUT);
 	}
@@ -145,7 +146,7 @@ void loop()
 		MUXwrite(0, 0, 0, 0);
 	}
 	StoveCurrentState = digitalRead(StoveOnPin);
-	if (StoveOn!=StoveCurrentState){
+	if (StoveOn != StoveCurrentState){
 		if (StoveCurrentState == HIGH){
 			Serial.println("st_on!");
 		}
@@ -163,30 +164,28 @@ void loop()
 		}
 	}
 	if (autolo == true){
-		LDRsensorOut = analogRead(LDRpin);
-		if (LDRsensorOut <= 300){
+		LDRsensor = analogRead(LDRpin);
+		if (LDRsensor <= 300){
 			MUXwrite(0, 1, 1, 1);
 			loON = true;
 		}
-		else if (LDRsensorOut > 300){
+		else if (LDRsensor > 300){
 			MUXwrite(1, 1, 1, 1);
 			loON = false;
 		}
 	}
 	if (autoli == true){
-		LDRsensorIn = analogRead(LDRpin);
-		if (LDRsensorIn <= 300){
+		LDRsensor = analogRead(LDRpin);
+		if (LDRsensor <= 300){
 			MUXwrite(0, 0, 1, 0);
 			liON = true;
 		}
-		else if (LDRsensorIn > 300){
+		else if (LDRsensor > 300){
 			MUXwrite(1, 0, 1, 0);
 			liON = false;
 		}
 	}
-
 }
-
 void SerialEvent(){
 	while (Serial.available()){
 		inChar = (char)Serial.read();
@@ -221,8 +220,8 @@ void CheckRequest(String command){
 	if (command.startsWith("all")){
 		CheckAll();
 	}
-	else if (command.startsWith("fa")){
-		Serial.println(CheckStatus("fa"));
+	else if (command.startsWith("fan")){
+		Serial.println(CheckStatus("fan"));
 	}
 	else if (command.startsWith("do")){
 		//Serial.println(command);//debug msg
@@ -290,6 +289,9 @@ void CheckRequest(String command){
 	}
 	else if (command.startsWith("autoli")){
 		Serial.println(CheckStatus("autoli"));
+	}
+	else if (command.startsWith("fa")){
+		Serial.println(CheckStatus("fa"));
 	}
 	else{
 		Serial.println(CheckStatus("error_Invalid command!"));
@@ -362,6 +364,36 @@ void MsgHandler(String command){
 			MUXwrite(1, 0, 1, 0);
 		}
 	}
+	if (command.startsWith("fan")){
+		if (!autoAC){
+			if (command.endsWith("1")){
+				analogWrite(FanPin, 1023);
+				delay(100);
+				analogWrite(FanPin, 341);
+				FanSpeed = 1;
+			}
+			if (command.endsWith("2")){
+				analogWrite(FanPin, 1023);
+				delay(100);
+				analogWrite(FanPin, 682);
+				FanSpeed = 2;
+			}
+			if (command.endsWith("3")){
+				analogWrite(FanPin, 1023);
+				FanSpeed = 3;
+			}
+			if (command.endsWith("off")){
+				analogWrite(FanPin, 0);
+				FanSpeed = 0;
+			}
+			else{
+				Serial.println("error_Unknown command or syntax error. To set fan speed use i.e. fan_1! (1 min - 3 max)!");
+			}
+		}
+		else{
+			Serial.println("error_To manually controll the fan, turn OFF AutoAC first");
+		}
+	}
 	else {
 		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
 		Serial.println("error_Syntax error. Unknown command!");
@@ -389,9 +421,10 @@ String CheckStatus(String what){
 			faTrig = true;
 			return "fa_alarm!";
 		}
-		else
+		else if (FireAlarm == LOW){
 			//Serial.println("fa_off!");
 			return "fa_off!";
+		}
 	}
 	else if (what.equals("do")){
 		DoorIsOpen = digitalRead(DoorIsOpenedPin);
@@ -399,9 +432,10 @@ String CheckStatus(String what){
 			//Serial.println("do_on!");
 			return "do_on!";
 		}
-		else
+		else if (DoorIsOpen == HIGH){
 			//Serial.println("do_off!");
 			return "do_off!";
+		}
 	}
 	else if (what.equals("wl")){
 		WaterLeakage = digitalRead(WaterLeakagePin);
@@ -411,9 +445,10 @@ String CheckStatus(String what){
 			wlTrig = true;
 			return "wl_on!";
 		}
-		else
+		else if (WaterLeakage == LOW){
 			//Serial.println("wl_off!");
 			return "wl_off!";
+		}
 
 	}
 	else if (what.equals("st")){
@@ -421,13 +456,11 @@ String CheckStatus(String what){
 		if (StoveOn == HIGH){
 			//Serial.println("st_on!");
 			return "st_on!";
-
 		}
-		else
+		else if (StoveOn == LOW){
 			//Serial.println("st_off!");
 			return "st_off!";
-
-
+		}
 	}
 	else if (what.equals("wo")){
 		WindowIsOpened = digitalRead(WindowIsOpenedPin);
@@ -435,9 +468,10 @@ String CheckStatus(String what){
 			//Serial.println("wo_on!");
 			return "wo_on!";
 		}
-		else
+		else if (WindowIsOpened == LOW){
 			//Serial.println("wo_off!");
 			return "wo_off!";
+		}
 	}
 	else if (what.equals("ec")){
 		ElectricityCut = digitalRead(ElectricityCutPin);
@@ -445,30 +479,34 @@ String CheckStatus(String what){
 			//Serial.println("ec_on!");
 			return ".";
 		}
-		else
-			//Serial.println("ec_off!");
+		else if (ElectricityCut == LOW){
 			return ".";
+			//Serial.println("ec_off!");
+		}
+			
+			
 	}
 	else if (what.equals("li")){
 		if (liON){
 			return "li_on!";
 		}
-		else
+		else if (!liON){
 			return "li_off!";
+		}
 	}
 	else if (what.equals("lo")){
 		if (loON){
 			return "lo_on!";
 		}
-		else
+		else if (!loON){
 			return "lo_off!";
+		}
 	}
 	else if (what.equals("sa")){
 		if (SecurityAlarm){
 			return "sa_on!";
 		}
-		else
-		{
+		else if (!SecurityAlarm){
 			return "sa_off!";
 		}
 	}
@@ -493,7 +531,14 @@ String CheckStatus(String what){
 			return "autoli_off!";
 		}
 	}
-
+	else if (what.equals("fan")){
+		if (FanSpeed != 0){
+			return "fan_" + (String)FanSpeed+"!";
+		}
+		else if (FanSpeed == 0){
+			return "fan_off!";
+		}
+	}
 	else{
 		//Serial.println("Unknown or empty command");
 		return "error_Unknown or empty command!";
