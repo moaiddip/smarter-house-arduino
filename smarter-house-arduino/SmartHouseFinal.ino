@@ -1,4 +1,4 @@
-﻿// Device Group proudly presents its part of the work on the
+// Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
 // |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
@@ -67,6 +67,13 @@ int LDRsensor;
 int FanSpeed = 0;
 double TempOut;
 long alarmReportTimer;
+long tempReportTimer;
+
+float  DutyCycle = 0;                               //DutyCycle that need to calculate
+unsigned long  SquareWaveHighTime = 0;				//High time for the square wave
+unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave
+unsigned long  Temperature = 0;						//Calculated temperature using dutycycle  
+String tmpoutString;
 
 void setup()
 {
@@ -109,10 +116,12 @@ void loop()
 		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
 		MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
 		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
+		calcTemp(); //initialization of tmpout (stored as string in temperature2)
 		Serial.println("autochkstart!");
 		CheckAll();
 		Serial.println("eol!");
 		alarmReportTimer = millis();
+		tempReportTimer = millis();
 		FirstRun = false;
 	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
@@ -134,7 +143,11 @@ void loop()
 		if (saTrig){
 			Serial.println("sa_alarm!");
 		}
-
+	}
+	if (millis() - tempReportTimer > 12000){
+		tempReportTimer = millis();
+		calcTemp();
+		Serial.println("tmpout_" + tmpoutString + "!");
 	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
@@ -483,8 +496,8 @@ String CheckStatus(String what){
 			return ".";
 			//Serial.println("ec_off!");
 		}
-			
-			
+
+
 	}
 	else if (what.equals("li")){
 		if (liON){
@@ -511,9 +524,7 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("tmpout")){
-		TempOut = analogRead(TempOutPin) * 5 / 1024.0; TempOut = TempOut - 0.5; TempOut = TempOut / 0.01;
-		//Serial.println("tmpout_" + (String)TempOut);
-		return ".";
+		return tmpoutString;
 	}
 	else if (what.equals("autolo")){
 		if (autolo){
@@ -533,7 +544,7 @@ String CheckStatus(String what){
 	}
 	else if (what.equals("fan")){
 		if (FanSpeed != 0){
-			return "fan_" + (String)FanSpeed+"!";
+			return "fan_" + (String)FanSpeed + "!";
 		}
 		else if (FanSpeed == 0){
 			return "fan_off!";
@@ -543,4 +554,15 @@ String CheckStatus(String what){
 		//Serial.println("Unknown or empty command");
 		return "error_Unknown or empty command!";
 	}
+}
+
+void calcTemp() {
+	DutyCycle = 0;                                      //Initialize to zero to avoid wrong reading 
+	Temperature = 0;                                    //due to incorrect sampling etc  
+	SquareWaveHighTime = pulseIn(TempOutPin, HIGH);
+	SquareWaveLowTime = pulseIn(TempOutPin, LOW);
+	DutyCycle = SquareWaveHighTime;						//Calculate Duty Cycle for the square wave 
+	DutyCycle /= (SquareWaveHighTime + SquareWaveLowTime);
+	Temperature = (DutyCycle - 0.320) / 0.00470;
+	tmpoutString = (String)Temperature;
 }
