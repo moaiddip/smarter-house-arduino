@@ -341,7 +341,7 @@ void MsgHandler(String command){
 	}
 	else if (command.equals("li_on")){
 		if (autoli){
-			Serial.println(F("error_Auto Light option is ON!"));
+			Serial.println(F("error_Auto Light In option is ON!"));
 		}
 		else{
 			MUXwrite(0, 0, 1, 0);
@@ -349,12 +349,17 @@ void MsgHandler(String command){
 		}
 	}
 	else if (command.equals("li_off")){
-		MUXwrite(1, 0, 1, 0);
-		liON = false;
+		if (autoli){
+			Serial.println(F("error_Auto Light In option is ON!"));
+		}
+		else{
+			MUXwrite(1, 0, 1, 0);
+			liON = false;
+		}
 	}
 	else if (command.equals("lo_on")){
 		if (autolo){
-			Serial.println(F("error_Auto Light option is ON!"));
+			Serial.println(F("error_Auto Light Out option is ON!"));
 		}
 		else{
 			MUXwrite(0, 1, 1, 1);
@@ -362,8 +367,13 @@ void MsgHandler(String command){
 		}
 	}
 	else if (command.equals("lo_off")){
-		MUXwrite(1, 1, 1, 1);
-		loON = false;
+		if (autolo){
+			Serial.println(F("error_Auto Light Out option is ON!"));
+		}
+		else{
+			MUXwrite(1, 1, 1, 1);
+			loON = false;
+		}
 	}
 
 	else if (command.equals("autolo_on")){
