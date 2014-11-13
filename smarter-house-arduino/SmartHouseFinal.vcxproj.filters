@@ -24,6 +24,9 @@
     <ClInclude Include="Visual Micro\.Project4.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Visual Micro\.SmarterHouseFinal.vsarduino.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="SmartHouseFinal.ino" />

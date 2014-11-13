@@ -17,9 +17,10 @@
 // |--------------------------------------------------------------------------------|
 // | FROM NOW ON CODE REVISION IN REPOSITORY https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
 // |________________________________________________________________________________|
-
+#include <MemoryFree.h>;
+#include <pgmStrToRAM.h>;
 // DIGITAL INPUT PINS
-#define size1 7
+//#define size1 7
 int FireAlarmPin = 2;
 int DoorIsOpenedPin = 3;
 int WaterLeakagePin = 4;
@@ -27,23 +28,23 @@ int StoveOnPin = 5;
 int WindowIsOpenedPin = 6;
 int ElectricityCutPin = 7;
 int TempOutPin = 9;
-int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
+//int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
 // ANALOG INPUT PINS
-#define size2 4
+//#define size2 4
 int ElConsumptionPin = 14; //=A0
 int TempInsidePin = 15; //=A1
 int TempInsideWindPin = 16; //=A2
 int LDRpin = 17; //=A3
-int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TempInsideWindPin, LDRpin };
+//int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TempInsideWindPin, LDRpin };
 // DIGITAL PWM OUTPUT PINS
 int FanPin = 10;
 // DIGITAL OUTPUT PINS (MUX)
-#define size3 4
+//#define size3 4
 int MUX12 = 12;
 int MUX13 = 13;
 int MUX11 = 11;
 int MUX8 = 8;
-int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
+//int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 24
 String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "ldr", "buzz", "t2", "li", "aled", "heatroof", "heatin", "t1", "lo", "autoac", "autolo", "sa", "autoli", "fan" };
@@ -65,31 +66,44 @@ int StoveOn, StoveCurrentState = 0;
 int ElectricityCut;
 int LDRsensor;
 int FanSpeed = 0;
-double TempOut;
 long alarmReportTimer;
 long tempReportTimer;
-
-float  DutyCycle = 0;                               //DutyCycle that need to calculate
-unsigned long  SquareWaveHighTime = 0;				//High time for the square wave
-unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave
-unsigned long  Temperature = 0;						//Calculated temperature using dutycycle  
-String tmpoutString;
-
+//Outside temperature digital sensor/////////////////////////////////////////////////////
+float  DutyCycle = 0;                               //DutyCycle that need to calculate  /
+unsigned long  SquareWaveHighTime = 0;				//High time for the square wave     /
+unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave      /
+unsigned long TempOut = 0;						//Calculated temperature using dutycycle/ 
+/////////////////////////////////////////////////////////////////////////////////////////
 void setup()
 {
 	Serial.begin(38400);
 	inMsg.reserve(10);
 	//Settings pinMode
-	pinMode(FanPin, OUTPUT);
+	/*pinMode(FanPin, OUTPUT);
 	for (int i = 0; i < size1; i++){
-		pinMode(digitalInputPins[i], INPUT);
-	}
-	for (int i = 0; i < size2; i++){
+	pinMode(digitalInputPins[i], INPUT);
+	}*/
+	pinMode(FireAlarmPin, INPUT);
+	pinMode(DoorIsOpenedPin, INPUT);
+	pinMode(WaterLeakagePin, INPUT);
+	pinMode(StoveOnPin, INPUT);
+	pinMode(WindowIsOpenedPin, INPUT);
+	pinMode(ElectricityCutPin, INPUT);
+	pinMode(TempOutPin, INPUT);
+	/*for (int i = 0; i < size2; i++){
 		pinMode(analogInputPins[i], INPUT);
-	}
-	for (int i = 0; i < size3; i++){
+	}*/
+	pinMode(ElConsumptionPin, INPUT);
+	pinMode(TempInsidePin, INPUT);
+	pinMode(TempInsideWindPin, INPUT);
+	pinMode(LDRpin, INPUT);
+	/*for (int i = 0; i < size3; i++){
 		pinMode(MUXpins[i], OUTPUT);
-	}
+	}*/ 
+	pinMode(MUX12, OUTPUT);
+	pinMode(MUX13, OUTPUT);
+	pinMode(MUX11, OUTPUT);
+	pinMode(MUX8, OUTPUT);
 }
 
 //*Changed the order of the MUXwrite-method so it corresponds to the MUX-table in lab4-PDF.
@@ -101,13 +115,14 @@ void MUXwrite(int first, int second, int third, int fourth){
 	digitalWrite(MUX13, second);
 	digitalWrite(MUX11, third);
 	digitalWrite(MUX8, fourth);
-	//Serial.println((String)first + " " + (String)second + " " + (String)third + " " + (String)fourth);
+	//Serial.println(F((String)first + " " + (String)second + " " + (String)third + " " + (String)fourth);
 	delay(100);
 }
 
 void loop()
 {
 	if (FirstRun){
+		//Serial.println(freeMemory(), DEC);//debug msg
 		MUXwrite(1, 1, 0, 1);//Turns OFF heating element
 		MUXwrite(1, 1, 0, 0);//Turns OFF heating element wind
 		MUXwrite(1, 0, 1, 0);//Turns OFF inside light
@@ -116,10 +131,8 @@ void loop()
 		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
 		MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
 		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
-		calcTemp(); //initialization of tmpout (stored as string in temperature2)
-		Serial.println("autochkstart!");
+		calcTempOut(); //initialization of tmpout (stored as string in temperature2)
 		CheckAll();
-		Serial.println("eol!");
 		alarmReportTimer = millis();
 		tempReportTimer = millis();
 		FirstRun = false;
@@ -135,19 +148,20 @@ void loop()
 	if (millis() - alarmReportTimer > 5000){
 		alarmReportTimer = millis();
 		if (wlTrig){
-			Serial.println("wl_alarm!");
+			Serial.println(F("wl_alarm!"));
 		}
 		if (faTrig){
-			Serial.println("fa_alarm!");
+			Serial.println(F("fa_alarm!"));
 		}
 		if (saTrig){
-			Serial.println("sa_alarm!");
+			Serial.println(F("sa_alarm!"));
 		}
 	}
 	if (millis() - tempReportTimer > 12000){
 		tempReportTimer = millis();
-		calcTemp();
-		Serial.println("tmpout_" + tmpoutString + "!");
+		calcTempOut();
+		Serial.println("tmpout_" + (String)TempOut + "!");
+		Serial.println(freeMemory(), DEC);//debug msg
 	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
@@ -161,19 +175,19 @@ void loop()
 	StoveCurrentState = digitalRead(StoveOnPin);
 	if (StoveOn != StoveCurrentState){
 		if (StoveCurrentState == HIGH){
-			Serial.println("st_on!");
+			Serial.println(F("st_on!"));
 		}
 		else if (StoveCurrentState == LOW){
-			Serial.println("st_off!");
+			Serial.println(F("st_off!"));
 		}
 	}
 	WindowCurrentState = digitalRead(WindowIsOpenedPin);
 	if (WindowIsOpened != WindowCurrentState){
 		if (WindowCurrentState == HIGH){
-			Serial.println("wo_on!");
+			Serial.println(F("wo_on!"));
 		}
 		else if (WindowCurrentState == LOW){
-			Serial.println("wo_off!");
+			Serial.println(F("wo_off!"));
 		}
 	}
 	if (autolo == true){
@@ -226,10 +240,10 @@ void SerialEvent(){
 }
 
 void TestRequest(String command){
-	Serial.println("Test requested");
+	Serial.println(F("Test requested!"));
 }
 void CheckRequest(String command){
-	//Serial.println("Check requested"); //debug msg
+	//Serial.println(F("Check requested"); //debug msg
 	if (command.startsWith("all")){
 		CheckAll();
 	}
@@ -237,7 +251,7 @@ void CheckRequest(String command){
 		Serial.println(CheckStatus("fan"));
 	}
 	else if (command.startsWith("do")){
-		//Serial.println(command);//debug msg
+		//Serial.println(F(command);//debug msg
 		Serial.println(CheckStatus("do"));
 	}
 	else if (command.startsWith("wl")){
@@ -307,13 +321,13 @@ void CheckRequest(String command){
 		Serial.println(CheckStatus("fa"));
 	}
 	else{
-		Serial.println(CheckStatus("error_Invalid command!"));
+		Serial.println(F("error_Invalid command!"));
 	}
 }
 void MsgHandler(String command){
 	if (command.equals("sa_on")){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH || digitalRead(StoveOnPin) == HIGH) {
-			Serial.println("error_Door and windows must be closed to activate!");
+			Serial.println(F("error_Door and windows must be closed to activate!"));
 		}
 		else {
 			SecurityAlarm = true;
@@ -327,7 +341,7 @@ void MsgHandler(String command){
 	}
 	else if (command.equals("li_on")){
 		if (autoli){
-			Serial.println("error_Auto Light option is ON.");
+			Serial.println(F("error_Auto Light option is ON!"));
 		}
 		else{
 			MUXwrite(0, 0, 1, 0);
@@ -340,7 +354,7 @@ void MsgHandler(String command){
 	}
 	else if (command.equals("lo_on")){
 		if (autolo){
-			Serial.println("error_Auto Light option is ON.");
+			Serial.println(F("error_Auto Light option is ON!"));
 		}
 		else{
 			MUXwrite(0, 1, 1, 1);
@@ -377,7 +391,7 @@ void MsgHandler(String command){
 			MUXwrite(1, 0, 1, 0);
 		}
 	}
-	if (command.startsWith("fan")){
+	else if (command.startsWith("fan")){
 		if (!autoAC){
 			if (command.endsWith("1")){
 				analogWrite(FanPin, 1023);
@@ -400,22 +414,24 @@ void MsgHandler(String command){
 				FanSpeed = 0;
 			}
 			else{
-				Serial.println("error_Unknown command or syntax error. To set fan speed use i.e. fan_1! (1 min - 3 max)!");
+				Serial.println(F("error_Unknown command or syntax error. To set fan speed use i.e. fan_1! (1 min - 3 max)!"));
 			}
 		}
 		else{
-			Serial.println("error_To manually controll the fan, turn OFF AutoAC first");
+			Serial.println(F("error_To manually controll the fan, turn OFF AutoAC first!"));
 		}
 	}
 	else {
-		//Serial.println("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
-		Serial.println("error_Syntax error. Unknown command!");
+		//Serial.println(F("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
+		Serial.println(F("error_Syntax error. Unknown command!"));
 	}
 }
 void CheckAll(){
+	Serial.println(F("autochkstart!"));
 	for (int i = 0; i < size4; i++){
 		Serial.println(CheckStatus(allFunctions[i]));
 	}
+	Serial.println(F("eol!"));
 }
 void UpdateDevicesStatus(){
 	for (int i = 0; i < size4; i++){
@@ -425,41 +441,41 @@ void UpdateDevicesStatus(){
 
 
 String CheckStatus(String what){
-	//Serial.println(what); //debug msg
+	//Serial.println(F(what); //debug msg
 	if (what.equals("fa")){
 		FireAlarm = digitalRead(FireAlarmPin);
 		if (FireAlarm == HIGH){
-			//Serial.println("fa_on!"); //debug msg
+			//Serial.println(F("fa_on!"); //debug msg
 			MUXwrite(1, 0, 0, 0);
 			faTrig = true;
 			return "fa_alarm!";
 		}
 		else if (FireAlarm == LOW){
-			//Serial.println("fa_off!");
+			//Serial.println(F("fa_off!");
 			return "fa_off!";
 		}
 	}
 	else if (what.equals("do")){
 		DoorIsOpen = digitalRead(DoorIsOpenedPin);
 		if (DoorIsOpen == LOW){
-			//Serial.println("do_on!");
+			//Serial.println(F("do_on!");
 			return "do_on!";
 		}
 		else if (DoorIsOpen == HIGH){
-			//Serial.println("do_off!");
+			//Serial.println(F("do_off!");
 			return "do_off!";
 		}
 	}
 	else if (what.equals("wl")){
 		WaterLeakage = digitalRead(WaterLeakagePin);
 		if (WaterLeakage == HIGH){
-			//Serial.println("wl_on!");
+			//Serial.println(F("wl_on!");
 			MUXwrite(1, 0, 0, 0);
 			wlTrig = true;
 			return "wl_on!";
 		}
 		else if (WaterLeakage == LOW){
-			//Serial.println("wl_off!");
+			//Serial.println(F("wl_off!");
 			return "wl_off!";
 		}
 
@@ -467,34 +483,34 @@ String CheckStatus(String what){
 	else if (what.equals("st")){
 		StoveOn = digitalRead(StoveOnPin);
 		if (StoveOn == HIGH){
-			//Serial.println("st_on!");
+			//Serial.println(F("st_on!");
 			return "st_on!";
 		}
 		else if (StoveOn == LOW){
-			//Serial.println("st_off!");
+			//Serial.println(F("st_off!");
 			return "st_off!";
 		}
 	}
 	else if (what.equals("wo")){
 		WindowIsOpened = digitalRead(WindowIsOpenedPin);
 		if (WindowIsOpened == HIGH){
-			//Serial.println("wo_on!");
+			//Serial.println(F("wo_on!");
 			return "wo_on!";
 		}
 		else if (WindowIsOpened == LOW){
-			//Serial.println("wo_off!");
+			//Serial.println(F("wo_off!");
 			return "wo_off!";
 		}
 	}
 	else if (what.equals("ec")){
 		ElectricityCut = digitalRead(ElectricityCutPin);
 		if (ElectricityCut == HIGH){
-			//Serial.println("ec_on!");
-			return ".";
+			//Serial.println(F("ec_on!");
+			return ".!";
 		}
 		else if (ElectricityCut == LOW){
-			return ".";
-			//Serial.println("ec_off!");
+			return ".!";
+			//Serial.println(F("ec_off!");
 		}
 
 
@@ -524,7 +540,7 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("tmpout")){
-		return tmpoutString;
+		return (String)TempOut;
 	}
 	else if (what.equals("autolo")){
 		if (autolo){
@@ -551,18 +567,17 @@ String CheckStatus(String what){
 		}
 	}
 	else{
-		//Serial.println("Unknown or empty command");
+		//Serial.println(F("Unknown or empty command");
 		return "error_Unknown or empty command!";
 	}
 }
 
-void calcTemp() {
+void calcTempOut() {
 	DutyCycle = 0;                                      //Initialize to zero to avoid wrong reading 
-	Temperature = 0;                                    //due to incorrect sampling etc  
+	TempOut = 0;                                    //due to incorrect sampling etc  
 	SquareWaveHighTime = pulseIn(TempOutPin, HIGH);
 	SquareWaveLowTime = pulseIn(TempOutPin, LOW);
 	DutyCycle = SquareWaveHighTime;						//Calculate Duty Cycle for the square wave 
 	DutyCycle /= (SquareWaveHighTime + SquareWaveLowTime);
-	Temperature = (DutyCycle - 0.320) / 0.00470;
-	tmpoutString = (String)Temperature;
+	TempOut = (DutyCycle - 0.320) / 0.00470;
 }
