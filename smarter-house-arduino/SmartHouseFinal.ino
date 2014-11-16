@@ -20,7 +20,7 @@
 #include <MemoryFree.h>;
 #include <pgmStrToRAM.h>;
 // DIGITAL INPUT PINS
-//#define size1 7
+#define size1 7
 int FireAlarmPin = 2;
 int DoorIsOpenedPin = 3;
 int WaterLeakagePin = 4;
@@ -28,26 +28,26 @@ int StoveOnPin = 5;
 int WindowIsOpenedPin = 6;
 int ElectricityCutPin = 7;
 int TempOutPin = 9;
-//int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
+int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
 // ANALOG INPUT PINS
-//#define size2 4
+#define size2 4
 int ElConsumptionPin = 14; //=A0
 int TempInsidePin = 15; //=A1
-int TempInsideWindPin = 16; //=A2
+int TmpRoofPin = 16; //=A2
 int LDRpin = 17; //=A3
-//int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TempInsideWindPin, LDRpin };
+int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TmpRoofPin, LDRpin };
 // DIGITAL PWM OUTPUT PINS
 int FanPin = 10;
 // DIGITAL OUTPUT PINS (MUX)
-//#define size3 4
+#define size3 4
 int MUX12 = 12;
 int MUX13 = 13;
 int MUX11 = 11;
 int MUX8 = 8;
-//int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
+int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
-#define size4 24
-String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "ldr", "buzz", "t2", "li", "aled", "heatroof", "heatin", "t1", "lo", "autoac", "autolo", "sa", "autoli", "fan" };
+#define size4 19 //24
+String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
 // String input
 String inMsg = ""; // saves messages from local server until gets "!" which means end of message
 char inChar; // incoming character that is saved in inMsg
@@ -56,7 +56,7 @@ char inChar; // incoming character that is saved in inMsg
 boolean SecurityAlarm = false;
 boolean FirstRun = true;
 boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
-boolean autoli, liON, autolo, loON, autoAC = false;
+boolean autoli, liON, autolo, loON, autoAC, heatinON, heatroofON = false;
 // integers // (holding values from pins)
 int WindowIsOpened, WindowCurrentState = 0;
 int FireAlarm;
@@ -74,36 +74,47 @@ unsigned long  SquareWaveHighTime = 0;				//High time for the square wave     /
 unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave      /
 unsigned long TempOut = 0;						//Calculated temperature using dutycycle/ 
 /////////////////////////////////////////////////////////////////////////////////////////
+//Inside temperature analog sensor//////////////////////////////////////////////////////
+int TmpIn1, TmpIn2, TmpIn3, TmpIn = 0;//holding readings to finally get avarage in TmpIn/
+boolean TmpInFirstReading = true; //first reading will be copied to all TempIn*         /
+int TmpInIter = 0; //number of iterations, gets 1 after 3; used to calculate avarage    /
+/////////////////////////////////////////////////////////////////////////////////////////
+//Roof temperature analog sensor//////////////////////////////////////////////////////
+int TmpRoof1, TmpRoof2, TmpRoof3, TmpRoof = 0;//holding readings to finally get avarage in TmpIn/
+boolean TmpRoofFirstReading = true; //first reading will be copied to all TempIn*         /
+int TmpRoofIter = 0; //number of iterations, gets 1 after 3; used to calculate avarage    /
+/////////////////////////////////////////////////////////////////////////////////////////
+
 void setup()
 {
 	Serial.begin(38400);
 	inMsg.reserve(10);
 	//Settings pinMode
-	/*pinMode(FanPin, OUTPUT);
+	pinMode(FanPin, OUTPUT);
 	for (int i = 0; i < size1; i++){
 	pinMode(digitalInputPins[i], INPUT);
-	}*/
-	pinMode(FireAlarmPin, INPUT);
+	}
+	/*pinMode(FireAlarmPin, INPUT);
 	pinMode(DoorIsOpenedPin, INPUT);
 	pinMode(WaterLeakagePin, INPUT);
 	pinMode(StoveOnPin, INPUT);
 	pinMode(WindowIsOpenedPin, INPUT);
 	pinMode(ElectricityCutPin, INPUT);
-	pinMode(TempOutPin, INPUT);
-	/*for (int i = 0; i < size2; i++){
+	pinMode(TempOutPin, INPUT);*/
+	for (int i = 0; i < size2; i++){
 		pinMode(analogInputPins[i], INPUT);
-	}*/
-	pinMode(ElConsumptionPin, INPUT);
+	}
+	/*pinMode(ElConsumptionPin, INPUT);
 	pinMode(TempInsidePin, INPUT);
-	pinMode(TempInsideWindPin, INPUT);
-	pinMode(LDRpin, INPUT);
-	/*for (int i = 0; i < size3; i++){
+	pinMode(TmpRoofPin, INPUT);
+	pinMode(LDRpin, INPUT);*/
+	for (int i = 0; i < size3; i++){
 		pinMode(MUXpins[i], OUTPUT);
-	}*/ 
-	pinMode(MUX12, OUTPUT);
+	}
+	/*pinMode(MUX12, OUTPUT);
 	pinMode(MUX13, OUTPUT);
 	pinMode(MUX11, OUTPUT);
-	pinMode(MUX8, OUTPUT);
+	pinMode(MUX8, OUTPUT);*/
 }
 
 //*Changed the order of the MUXwrite-method so it corresponds to the MUX-table in lab4-PDF.
@@ -131,11 +142,14 @@ void loop()
 		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
 		MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
 		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
-		calcTempOut(); //initialization of tmpout (stored as string in temperature2)
+		calcTempOut(); //initialization of tmpout
+		calcTempIn(); //initialization of tmpin
+		calcTempRoof();
 		CheckAll();
 		alarmReportTimer = millis();
 		tempReportTimer = millis();
 		FirstRun = false;
+		Serial.println(freeMemory(), DEC);//debug msg
 	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
 	//digitalWrite(MUX12, 1);
@@ -160,8 +174,12 @@ void loop()
 	if (millis() - tempReportTimer > 12000){
 		tempReportTimer = millis();
 		calcTempOut();
-		Serial.println("tmpout_" + (String)TempOut + "!");
-		Serial.println(freeMemory(), DEC);//debug msg
+		calcTempIn();
+		calcTempRoof();
+		Serial.println(CheckStatus("tmpout"));
+		Serial.println(CheckStatus("tmpin"));
+		Serial.println(CheckStatus("tmproof"));
+		//Serial.println(freeMemory(), DEC);//debug msg
 	}
 	if (SecurityAlarm){
 		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
@@ -220,28 +238,18 @@ void SerialEvent(){
 			inMsg += inChar;
 		}
 		else if (inChar == '!'){
-			if (inMsg.endsWith("test")){
-				TestRequest(inMsg);
-			}
-			else if (inMsg.endsWith("chk")){
+			if (inMsg.endsWith("chk")){
 				CheckRequest(inMsg);
 			}
 			else{
 				MsgHandler(inMsg);
 			}
-			if (!inMsg.endsWith("chk")){
-				CheckRequest(inMsg);
-			}
-
 			inMsg = "";
 			break;
 		}
 	}
 }
 
-void TestRequest(String command){
-	Serial.println(F("Test requested!"));
-}
 void CheckRequest(String command){
 	//Serial.println(F("Check requested"); //debug msg
 	if (command.startsWith("all")){
@@ -278,29 +286,14 @@ void CheckRequest(String command){
 	else if (command.startsWith("tmproof")){
 		Serial.println(CheckStatus("tmproof"));
 	}
-	else if (command.startsWith("ldr")){
-		Serial.println(CheckStatus("ldr"));
-	}
-	else if (command.startsWith("buzz")){
-		Serial.println(CheckStatus("buzz"));
-	}
-	else if (command.startsWith("t2")){
-		Serial.println(CheckStatus("t2"));
-	}
 	else if (command.startsWith("li")){
 		Serial.println(CheckStatus("li"));
-	}
-	else if (command.startsWith("aled")){
-		Serial.println(CheckStatus("aled"));
 	}
 	else if (command.startsWith("heatroof")){
 		Serial.println(CheckStatus("heatroof"));
 	}
 	else if (command.startsWith("heatin")){
 		Serial.println(CheckStatus("heatin"));
-	}
-	else if (command.startsWith("t1")){
-		Serial.println(CheckStatus("t1"));
 	}
 	else if (command.startsWith("lo")){
 		Serial.println(CheckStatus("lo"));
@@ -320,8 +313,23 @@ void CheckRequest(String command){
 	else if (command.startsWith("fa")){
 		Serial.println(CheckStatus("fa"));
 	}
+	/*else if (command.startsWith("ldr")){
+		Serial.println(CheckStatus("ldr"));
+		}
+		else if (command.startsWith("buzz")){
+		Serial.println(CheckStatus("buzz"));
+		}
+		else if (command.startsWith("t2")){
+		Serial.println(CheckStatus("t2"));
+		}
+		else if (command.startsWith("aled")){
+		Serial.println(CheckStatus("aled"));
+		}
+		else if (command.startsWith("t1")){
+		Serial.println(CheckStatus("t1"));
+		}*/
 	else{
-		Serial.println(F("error_Invalid command!"));
+		Serial.println(F("error_Invalid command; in CheckRequest()!"));
 	}
 }
 void MsgHandler(String command){
@@ -375,7 +383,6 @@ void MsgHandler(String command){
 			loON = false;
 		}
 	}
-
 	else if (command.equals("autolo_on")){
 		autolo = true;
 	}
@@ -409,17 +416,17 @@ void MsgHandler(String command){
 				analogWrite(FanPin, 341);
 				FanSpeed = 1;
 			}
-			if (command.endsWith("2")){
+			else if (command.endsWith("2")){
 				analogWrite(FanPin, 1023);
 				delay(100);
 				analogWrite(FanPin, 682);
 				FanSpeed = 2;
 			}
-			if (command.endsWith("3")){
+			else if (command.endsWith("3")){
 				analogWrite(FanPin, 1023);
 				FanSpeed = 3;
 			}
-			if (command.endsWith("off")){
+			else if (command.endsWith("off")){
 				analogWrite(FanPin, 0);
 				FanSpeed = 0;
 			}
@@ -431,9 +438,44 @@ void MsgHandler(String command){
 			Serial.println(F("error_To manually controll the fan, turn OFF AutoAC first!"));
 		}
 	}
+	else if (command.equals("heatin_on")){
+		if (autoAC){
+			Serial.println(F("error_Auto AC option is ON!"));
+		}
+		else{
+			MUXwrite(0, 1, 0, 1);
+			heatinON = true;
+		}
+	}
+	else if (command.equals("heatin_off")){
+		if (autoAC){
+			Serial.println(F("error_Auto AC option is ON!"));
+		}
+		else{
+			MUXwrite(1, 1, 0, 1);
+			heatinON = false;
+		}
+	}
+	else if (command.equals("heatroof_on")){
+		if (autoAC){
+			Serial.println(F("error_Auto AC option is ON!"));
+		}
+		else{
+			MUXwrite(0, 1, 0, 0);
+			heatroofON = true;
+		}
+	}
+	else if (command.equals("heatroof_off")){
+		if (autoAC){
+			Serial.println(F("error_Auto AC option is ON!"));
+		}
+		else{
+			MUXwrite(1, 1, 0, 0);
+			heatroofON = false;
+		}
+	}
 	else {
-		//Serial.println(F("error_Syntax error. \t\"" + command + "\"\t Unknown command!");
-		Serial.println(F("error_Syntax error. Unknown command!"));
+		Serial.println(F("error_Syntax error. Unknown command (in MsgHandler())!"));
 	}
 }
 void CheckAll(){
@@ -516,14 +558,12 @@ String CheckStatus(String what){
 		ElectricityCut = digitalRead(ElectricityCutPin);
 		if (ElectricityCut == HIGH){
 			//Serial.println(F("ec_on!");
-			return ".!";
+			return "ec_off!";
 		}
 		else if (ElectricityCut == LOW){
-			return ".!";
+			return "ec_on!";
 			//Serial.println(F("ec_off!");
 		}
-
-
 	}
 	else if (what.equals("li")){
 		if (liON){
@@ -550,7 +590,7 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("tmpout")){
-		return (String)TempOut;
+		return "tmpout_" + (String)TempOut + "!";
 	}
 	else if (what.equals("autolo")){
 		if (autolo){
@@ -576,6 +616,31 @@ String CheckStatus(String what){
 			return "fan_off!";
 		}
 	}
+	else if (what.equals("elcon")){
+		return "THIS CHECK HAS TO BE DEVELOPED elcon";
+	}
+	else if (what.equals("tmpin")){
+		return "tmpin_" + (String)TmpIn + "!";
+	}
+	else if (what.equals("tmproof")){
+		return "tmproof_"+(String)TmpRoof+"!";
+	}
+	else if (what.equals("heatin")){
+		if (heatinON){
+			return "heatin_on!";
+		}
+		else if (!heatinON){
+			return "heatin_off!";
+		}
+	}
+	else if (what.equals("heatroof")){
+		if (heatroofON){
+			return "heatroof_on!";
+		}
+		else if (!heatroofON){
+			return "heatroof_off!";
+		}
+	}
 	else{
 		//Serial.println(F("Unknown or empty command");
 		return "error_Unknown or empty command!";
@@ -590,4 +655,47 @@ void calcTempOut() {
 	DutyCycle = SquareWaveHighTime;						//Calculate Duty Cycle for the square wave 
 	DutyCycle /= (SquareWaveHighTime + SquareWaveLowTime);
 	TempOut = (DutyCycle - 0.320) / 0.00470;
+}
+
+void calcTempIn(){
+	if (TmpInFirstReading){
+		TmpIn1 = TmpIn2 = TmpIn3 = TmpIn = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
+		TmpInIter = 1;
+	}
+	else if (!TmpInFirstReading){
+		if (TmpInIter == 1){
+			TmpIn1 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
+			TmpInIter = 2;
+		}
+		else if (TmpInIter == 2){
+			TmpIn2 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
+			TmpInIter = 3;
+		}
+		else if (TmpInIter == 3){
+			TmpIn3 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
+			TmpInIter = 1;
+		}
+	}
+	TmpIn = (TmpIn1 + TmpIn2 + TmpIn3) / 3;
+}
+void calcTempRoof(){
+	if (TmpRoofFirstReading){
+		TmpRoof1 = TmpRoof2 = TmpRoof3 = TmpRoof = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
+		TmpRoofIter = 1;
+	}
+	else if (!TmpRoofFirstReading){
+		if (TmpRoofIter == 1){
+			TmpRoof1 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
+			TmpRoofIter = 2;
+		}
+		else if (TmpRoofIter == 2){
+			TmpRoof2 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
+			TmpRoofIter = 3;
+		}
+		else if (TmpRoofIter == 3){
+			TmpRoof3 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
+			TmpRoofIter = 1;
+		}
+	}
+	TmpRoof = (TmpRoof1 + TmpRoof2 + TmpRoof3) / 3;
 }
