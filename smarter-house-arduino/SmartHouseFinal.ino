@@ -339,10 +339,23 @@ void MsgHandler(String command){
 		}
 		else {
 			SecurityAlarm = true;
+			MUXwrite(0, 1, 1, 0);
 		}
 	}
 	else if (command.equals("sa_off")){
 		SecurityAlarm = false;
+		MUXwrite(1, 1, 1, 0);
+		saTrig = false;
+	}
+	else if (command.equals("wl_off")){
+		wlTrig = false;
+	}
+	else if (command.equals("fa_off")){
+		faTrig = false;
+	}
+	else if (command.equals("alarms_off")){
+		SecurityAlarm = false;
+		MUXwrite(1, 1, 1, 0);
 		saTrig = false;
 		wlTrig = false;
 		faTrig = false;
