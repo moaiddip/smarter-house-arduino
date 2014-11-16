@@ -66,6 +66,7 @@ int StoveOn, StoveCurrentState = 0;
 int ElectricityCut;
 int LDRsensor;
 int FanSpeed = 0;
+int autoACtmp = 0;
 long alarmReportTimer;
 long tempReportTimer;
 //Outside temperature digital sensor/////////////////////////////////////////////////////
@@ -179,6 +180,9 @@ void loop()
 		Serial.println(CheckStatus("tmpout"));
 		Serial.println(CheckStatus("tmpin"));
 		Serial.println(CheckStatus("tmproof"));
+		if (autoAC){
+			autoAChandler(autoACtmp);
+		}
 		//Serial.println(freeMemory(), DEC);//debug msg
 	}
 	if (SecurityAlarm){
@@ -487,6 +491,35 @@ void MsgHandler(String command){
 			heatroofON = false;
 		}
 	}
+	else if (command.startsWith("autoac")){
+		if (command.endsWith("off")){
+			MUXwrite(1, 1, 0, 0); //heatroof off
+			heatroofON = false;
+			MUXwrite(1, 1, 0, 1); //heatin off
+			heatinON = false;
+			analogWrite(FanPin, 0); //turns off fan
+			FanSpeed = 0;
+			autoAC = false;
+		}
+		else{
+			int tempcommandlength = command.length;
+			if (tempcommandlength < 10){
+				autoACtmp = command.substring(7, 8).toInt;
+				if (autoACtmp < 10 || autoACtmp>40){
+					Serial.println(F("error_Use \"autoac_XX\" where XX is valid integer for target temperature!"));
+				}
+				else if (autoACtmp>9 && autoACtmp<41){
+					Serial.println("error_Success. AutoAC turned on. Desired temperature: " + (String)autoACtmp + "!");//debug msg
+					autoAC = true;
+				}
+				else{
+					Serial.println(F("error_Error parsing to integer!"));
+				}
+			}
+			else
+				Serial.println(F("error_String too long. Temperature values range: 10 - 40!"));
+		}
+	}
 	else {
 		Serial.println(F("error_Syntax error. Unknown command (in MsgHandler())!"));
 	}
@@ -711,4 +744,52 @@ void calcTempRoof(){
 		}
 	}
 	TmpRoof = (TmpRoof1 + TmpRoof2 + TmpRoof3) / 3;
+}
+void autoAChandler(int temperature){
+	if (temperature > TmpIn){
+		if (temperature > TempOut){
+			analogWrite(FanPin, 1023);
+			MUXwrite(0, 1, 0, 0); //turns on heatroof
+			heatroofON = true;
+			MUXwrite(0, 1, 0, 1); //turns on heatin
+			heatinON = true;
+			analogWrite(FanPin, 341);
+			FanSpeed = 1;
+		}
+		else if (temperature < TempOut){
+			analogWrite(FanPin, 1023);
+			MUXwrite(1, 1, 0, 0); //turns off heatroof
+			heatroofON = false;
+			MUXwrite(0, 1, 0, 1); //turns on heatin
+			heatinON = true;
+			analogWrite(FanPin, 682);
+			FanSpeed = 2;
+		}
+	}
+	else if (temperature < TmpIn){
+		if (temperature > TempOut){
+			analogWrite(FanPin, 1023);
+			FanSpeed = 3;
+			MUXwrite(1, 1, 0, 0); //turns off heatroof
+			heatroofON = false;
+			MUXwrite(1, 1, 0, 1); //turns off heatin
+			heatinON = false;
+		}
+		else if (temperature < TempOut){
+			analogWrite(FanPin, 341);
+			FanSpeed = 1;
+			MUXwrite(1, 1, 0, 0); //turns off heatroof
+			heatroofON = false;
+			MUXwrite(1, 1, 0, 1); //turns off heatin
+			heatinON = false;
+		}
+	}
+	else if (temperature == TmpIn){
+		analogWrite(FanPin, 0);
+		FanSpeed = 0;
+		MUXwrite(1, 1, 0, 0); //turns off heatroof
+		heatroofON = false;
+		MUXwrite(1, 1, 0, 1); //turns off heatin
+		heatinON = false;
+	}
 }
