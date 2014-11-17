@@ -20,7 +20,7 @@
 #include <MemoryFree.h>;
 #include <pgmStrToRAM.h>;
 // DIGITAL INPUT PINS
-#define size1 7
+//#define size1 7
 int FireAlarmPin = 2;
 int DoorIsOpenedPin = 3;
 int WaterLeakagePin = 4;
@@ -28,23 +28,23 @@ int StoveOnPin = 5;
 int WindowIsOpenedPin = 6;
 int ElectricityCutPin = 7;
 int TempOutPin = 9;
-int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
+//int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
 // ANALOG INPUT PINS
-#define size2 4
+//#define size2 4
 int ElConsumptionPin = 14; //=A0
 int TempInsidePin = 15; //=A1
 int TmpRoofPin = 16; //=A2
 int LDRpin = 17; //=A3
-int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TmpRoofPin, LDRpin };
+//int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TmpRoofPin, LDRpin };
 // DIGITAL PWM OUTPUT PINS
 int FanPin = 10;
 // DIGITAL OUTPUT PINS (MUX)
-#define size3 4
+//#define size3 4
 int MUX12 = 12;
 int MUX13 = 13;
 int MUX11 = 11;
 int MUX8 = 8;
-int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
+//int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 19 //24
 String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
@@ -73,7 +73,8 @@ long tempReportTimer;
 float  DutyCycle = 0;                               //DutyCycle that need to calculate  /
 unsigned long  SquareWaveHighTime = 0;				//High time for the square wave     /
 unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave      /
-unsigned long TempOut = 0;						//Calculated temperature using dutycycle/ 
+unsigned long TempOut = 0;						//Calculated temperature using dutycycle/
+String TempOutS = "";
 /////////////////////////////////////////////////////////////////////////////////////////
 //Inside temperature analog sensor//////////////////////////////////////////////////////
 int TmpIn1, TmpIn2, TmpIn3, TmpIn = 0;//holding readings to finally get avarage in TmpIn/
@@ -92,30 +93,30 @@ void setup()
 	inMsg.reserve(10);
 	//Settings pinMode
 	pinMode(FanPin, OUTPUT);
-	for (int i = 0; i < size1; i++){
-	pinMode(digitalInputPins[i], INPUT);
-	}
-	/*pinMode(FireAlarmPin, INPUT);
+	/*for (int i = 0; i < size1; i++){
+		pinMode(digitalInputPins[i], INPUT);
+	}*/
+	pinMode(FireAlarmPin, INPUT);
 	pinMode(DoorIsOpenedPin, INPUT);
 	pinMode(WaterLeakagePin, INPUT);
 	pinMode(StoveOnPin, INPUT);
 	pinMode(WindowIsOpenedPin, INPUT);
 	pinMode(ElectricityCutPin, INPUT);
-	pinMode(TempOutPin, INPUT);*/
-	for (int i = 0; i < size2; i++){
+	pinMode(TempOutPin, INPUT);
+	/*for (int i = 0; i < size2; i++){
 		pinMode(analogInputPins[i], INPUT);
-	}
-	/*pinMode(ElConsumptionPin, INPUT);
+	}*/
+	pinMode(ElConsumptionPin, INPUT);
 	pinMode(TempInsidePin, INPUT);
 	pinMode(TmpRoofPin, INPUT);
-	pinMode(LDRpin, INPUT);*/
-	for (int i = 0; i < size3; i++){
+	pinMode(LDRpin, INPUT);
+	/*for (int i = 0; i < size3; i++){
 		pinMode(MUXpins[i], OUTPUT);
-	}
-	/*pinMode(MUX12, OUTPUT);
+	}*/
+	pinMode(MUX12, OUTPUT);
 	pinMode(MUX13, OUTPUT);
 	pinMode(MUX11, OUTPUT);
-	pinMode(MUX8, OUTPUT);*/
+	pinMode(MUX8, OUTPUT);
 }
 
 //*Changed the order of the MUXwrite-method so it corresponds to the MUX-table in lab4-PDF.
@@ -248,6 +249,9 @@ void SerialEvent(){
 			else{
 				MsgHandler(inMsg);
 			}
+			if (!inMsg.endsWith("chk")){
+				CheckRequest(inMsg);
+			}
 			inMsg = "";
 			break;
 		}
@@ -316,6 +320,11 @@ void CheckRequest(String command){
 	}
 	else if (command.startsWith("fa")){
 		Serial.println(CheckStatus("fa"));
+	}
+	else if (command.startsWith("alarms")){
+		Serial.println(CheckStatus("wl"));
+		Serial.println(CheckStatus("fa"));
+		Serial.println(CheckStatus("sa"));
 	}
 	/*else if (command.startsWith("ldr")){
 		Serial.println(CheckStatus("ldr"));
@@ -499,17 +508,25 @@ void MsgHandler(String command){
 			heatinON = false;
 			analogWrite(FanPin, 0); //turns off fan
 			FanSpeed = 0;
+			autoACtmp = 0;
 			autoAC = false;
 		}
 		else{
-			int tempcommandlength = command.length;
+			int tempcommandlength = 0;//command.length;
 			if (tempcommandlength < 10){
-				autoACtmp = command.substring(7, 8).toInt;
+				char one = command.charAt(7);
+				char two = command.charAt(8);
+				String oneS = (String)one;
+				String twoS = (String)two;
+				int oneI = oneS.toInt() * 10;
+				int twoI = twoS.toInt();
+				autoACtmp = oneI + twoI;
+				//Serial.println(autoAC);//debug msg
 				if (autoACtmp < 10 || autoACtmp>40){
 					Serial.println(F("error_Use \"autoac_XX\" where XX is valid integer for target temperature!"));
 				}
-				else if (autoACtmp>9 && autoACtmp<41){
-					Serial.println("error_Success. AutoAC turned on. Desired temperature: " + (String)autoACtmp + "!");//debug msg
+				else if (autoACtmp > 9 && autoACtmp < 41){
+					//Serial.println("error_Success. AutoAC turned on. Desired temperature: " + (String)autoACtmp + "!");//debug msg
 					autoAC = true;
 				}
 				else{
@@ -636,7 +653,8 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("tmpout")){
-		return "tmpout_" + (String)TempOut + "!";
+		//return "tmpout_" + (String)TempOut + "!";
+		return "tmpout_" + TempOutS + "!";
 	}
 	else if (what.equals("autolo")){
 		if (autolo){
@@ -669,7 +687,7 @@ String CheckStatus(String what){
 		return "tmpin_" + (String)TmpIn + "!";
 	}
 	else if (what.equals("tmproof")){
-		return "tmproof_"+(String)TmpRoof+"!";
+		return "tmproof_" + (String)TmpRoof + "!";
 	}
 	else if (what.equals("heatin")){
 		if (heatinON){
@@ -687,6 +705,14 @@ String CheckStatus(String what){
 			return "heatroof_off!";
 		}
 	}
+	else if (what.equals("autoac")){
+		if (autoACtmp == 0){
+			return "autoac_off!";
+		}
+		else{
+			return "autoac_" + (String)autoACtmp +"!";
+		}
+	}
 	else{
 		//Serial.println(F("Unknown or empty command");
 		return "error_Unknown or empty command!";
@@ -701,12 +727,14 @@ void calcTempOut() {
 	DutyCycle = SquareWaveHighTime;						//Calculate Duty Cycle for the square wave 
 	DutyCycle /= (SquareWaveHighTime + SquareWaveLowTime);
 	TempOut = (DutyCycle - 0.320) / 0.00470;
+	TempOutS = (String)TempOut;
 }
 
 void calcTempIn(){
 	if (TmpInFirstReading){
 		TmpIn1 = TmpIn2 = TmpIn3 = TmpIn = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
 		TmpInIter = 1;
+		TmpInFirstReading = false;
 	}
 	else if (!TmpInFirstReading){
 		if (TmpInIter == 1){
@@ -728,6 +756,7 @@ void calcTempRoof(){
 	if (TmpRoofFirstReading){
 		TmpRoof1 = TmpRoof2 = TmpRoof3 = TmpRoof = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
 		TmpRoofIter = 1;
+		TmpRoofFirstReading = false;
 	}
 	else if (!TmpRoofFirstReading){
 		if (TmpRoofIter == 1){

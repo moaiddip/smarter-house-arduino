@@ -43,13 +43,15 @@ extern "C" void __cxa_pure_virtual() {;}
 void MUXwrite(int first, int second, int third, int fourth);
 //
 void SerialEvent();
-void TestRequest(String command);
 void CheckRequest(String command);
 void MsgHandler(String command);
 void CheckAll();
 void UpdateDevicesStatus();
 String CheckStatus(String what);
 void calcTempOut();
+void calcTempIn();
+void calcTempRoof();
+void autoAChandler(int temperature);
 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\cores\arduino\arduino.h"
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\variants\standard\pins_arduino.h" 
