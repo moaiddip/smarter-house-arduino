@@ -523,6 +523,7 @@ void MsgHandler(String command){
 				autoACtmp = oneI + twoI;
 				//Serial.println(autoAC);//debug msg
 				if (autoACtmp < 10 || autoACtmp>40){
+					autoACtmp = 0;
 					Serial.println(F("error_Use \"autoac_XX\" where XX is valid integer for target temperature!"));
 				}
 				else if (autoACtmp > 9 && autoACtmp < 41){
