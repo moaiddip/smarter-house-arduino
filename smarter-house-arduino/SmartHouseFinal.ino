@@ -151,7 +151,7 @@ void loop()
 		alarmReportTimer = millis();
 		tempReportTimer = millis();
 		FirstRun = false;
-		Serial.println(freeMemory(), DEC);//debug msg
+		//Serial.println(freeMemory(), DEC);//debug msg
 	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
 	//digitalWrite(MUX12, 1);
