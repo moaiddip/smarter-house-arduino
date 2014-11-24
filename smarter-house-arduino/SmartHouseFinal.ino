@@ -1,6 +1,6 @@
 // Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
-// |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
+// |--------------------------------------------------------------------------------|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
 // |--------------------------------------------------------------------------------|
 // | VERSION CONTROL HISTORY
@@ -17,85 +17,82 @@
 // |--------------------------------------------------------------------------------|
 // | FROM NOW ON CODE REVISION IN REPOSITORY https://smarter-house-arduino.googlecode.com/svn/trunk/smarter-house-arduino
 // |________________________________________________________________________________|
-#include <MemoryFree.h>;
-#include <pgmStrToRAM.h>;
+//#include <MemoryFree.h>;
+//#include <pgmStrToRAM.h>;
+#include <avr\pgmspace.h>;
 // DIGITAL INPUT PINS
 //#define size1 7
-int FireAlarmPin = 2;
-int DoorIsOpenedPin = 3;
-int WaterLeakagePin = 4;
-int StoveOnPin = 5;
-int WindowIsOpenedPin = 6;
-int ElectricityCutPin = 7;
-int TempOutPin = 9;
+byte PROGMEM FireAlarmPin = 2;
+byte PROGMEM DoorIsOpenedPin = 3;
+byte PROGMEM WaterLeakagePin = 4;
+byte PROGMEM StoveOnPin = 5;
+byte PROGMEM WindowIsOpenedPin = 6;
+byte PROGMEM ElectricityCutPin = 7;
+byte PROGMEM TempOutPin = 9;
 //int digitalInputPins[size1] = { FireAlarmPin, DoorIsOpenedPin, WaterLeakagePin, StoveOnPin, WindowIsOpenedPin, ElectricityCutPin, TempOutPin };
 // ANALOG INPUT PINS
 //#define size2 4
-int ElConsumptionPin = 14; //=A0
-int TempInsidePin = 15; //=A1
-int TmpRoofPin = 16; //=A2
-int LDRpin = 17; //=A3
+byte PROGMEM ElConsumptionPin = 14; //=A0
+byte PROGMEM TempInsidePin = 15; //=A1
+byte PROGMEM TmpRoofPin = 16; //=A2
+byte PROGMEM LDRpin = 17; //=A3
 //int analogInputPins[size2] = { ElConsumptionPin, TempInsidePin, TmpRoofPin, LDRpin };
 // DIGITAL PWM OUTPUT PINS
-int FanPin = 10;
+byte PROGMEM FanPin = 10;
 // DIGITAL OUTPUT PINS (MUX)
 //#define size3 4
-int MUX12 = 12;
-int MUX13 = 13;
-int MUX11 = 11;
-int MUX8 = 8;
+byte PROGMEM MUX12 = 12;
+byte PROGMEM MUX13 = 13;
+byte PROGMEM MUX11 = 11;
+byte PROGMEM MUX8 = 8;
 //int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 19 //24
-String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
+static const String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
 // String input
 String inMsg = ""; // saves messages from local server until gets "!" which means end of message
 char inChar; // incoming character that is saved in inMsg
 // booleans // moslty to help in logic or to keep track of virtual functions (not readeble from hardware); setting
 // initial conditions
 boolean SecurityAlarm = false;
-boolean FirstRun = true;
 boolean saTrig, faTrig, wlTrig = false;//keep track if corresponding alarm is triggered
-boolean autoli, liON, autolo, loON, autoAC, heatinON, heatroofON = false;
+boolean autoli, liON, autolo, loON, autoAC, heatinON, heatroofON = false; //keeps an eye on devices/functions status
 // integers // (holding values from pins)
-int WindowIsOpened, WindowCurrentState = 0;
-int FireAlarm;
-int DoorIsOpen;
-int WaterLeakage;
-int StoveOn, StoveCurrentState = 0;
-int ElectricityCut;
-int LDRsensor;
-int FanSpeed = 0;
-int autoACtmp = 0;
-long alarmReportTimer;
-long tempReportTimer;
+boolean WindowIsOpened, WindowCurrentState = 0;
+boolean FireAlarm;
+boolean DoorIsOpen, DoorCurrentState = 0;
+boolean WaterLeakage;
+boolean StoveOn, StoveCurrentState = 0;
+boolean ElectricityCut, elcutTrig = 0;
+byte LDRsensor;
+byte FanSpeed = 0;
+byte autoACtmp = 0;
+unsigned int alarmReportTimer;
+unsigned int tempReportTimer;
 //Outside temperature digital sensor/////////////////////////////////////////////////////
 float  DutyCycle = 0;                               //DutyCycle that need to calculate  /
 unsigned long  SquareWaveHighTime = 0;				//High time for the square wave     /
 unsigned long  SquareWaveLowTime = 0;				//Low time for the square wave      /
 unsigned long TempOut = 0;						//Calculated temperature using dutycycle/
-String TempOutS = "";
+String TempOutS = "";//																	/
 /////////////////////////////////////////////////////////////////////////////////////////
-//Inside temperature analog sensor//////////////////////////////////////////////////////
-int TmpIn1, TmpIn2, TmpIn3, TmpIn = 0;//holding readings to finally get avarage in TmpIn/
-boolean TmpInFirstReading = true; //first reading will be copied to all TempIn*         /
-int TmpInIter = 0; //number of iterations, gets 1 after 3; used to calculate avarage    /
-/////////////////////////////////////////////////////////////////////////////////////////
-//Roof temperature analog sensor//////////////////////////////////////////////////////
-int TmpRoof1, TmpRoof2, TmpRoof3, TmpRoof = 0;//holding readings to finally get avarage in TmpIn/
-boolean TmpRoofFirstReading = true; //first reading will be copied to all TempIn*         /
-int TmpRoofIter = 0; //number of iterations, gets 1 after 3; used to calculate avarage    /
-/////////////////////////////////////////////////////////////////////////////////////////
+//Inside temperature analog sensor////////////////////////////////////////////////////////
+byte TmpIn1, TmpIn2, TmpIn3, TmpIn = 0;//holding readings to finally get avarage in TmpIn/
+//////////////////////////////////////////////////////////////////////////////////////////
+//Roof temperature analog sensor//////////////////////////////////////////////////////////////////
+byte TmpRoof1, TmpRoof2, TmpRoof3, TmpRoof = 0;//holding readings to finally get avarage in TmpIn/
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 void setup()
 {
 	Serial.begin(38400);
 	inMsg.reserve(10);
+	TempOutS.reserve(2);
 	//Settings pinMode
 	pinMode(FanPin, OUTPUT);
 	/*for (int i = 0; i < size1; i++){
 		pinMode(digitalInputPins[i], INPUT);
-	}*/
+		}*/
 	pinMode(FireAlarmPin, INPUT);
 	pinMode(DoorIsOpenedPin, INPUT);
 	pinMode(WaterLeakagePin, INPUT);
@@ -105,18 +102,33 @@ void setup()
 	pinMode(TempOutPin, INPUT);
 	/*for (int i = 0; i < size2; i++){
 		pinMode(analogInputPins[i], INPUT);
-	}*/
+		}*/
 	pinMode(ElConsumptionPin, INPUT);
 	pinMode(TempInsidePin, INPUT);
 	pinMode(TmpRoofPin, INPUT);
 	pinMode(LDRpin, INPUT);
 	/*for (int i = 0; i < size3; i++){
 		pinMode(MUXpins[i], OUTPUT);
-	}*/
+		}*/
 	pinMode(MUX12, OUTPUT);
 	pinMode(MUX13, OUTPUT);
 	pinMode(MUX11, OUTPUT);
 	pinMode(MUX8, OUTPUT);
+	//FIRST RUN INITIALIZATION OF DEVICES and VARIABLES
+	MUXwrite(1, 1, 0, 1);//Turns OFF heating element
+	MUXwrite(1, 1, 0, 0);//Turns OFF heating element wind
+	MUXwrite(1, 0, 1, 0);//Turns OFF inside light
+	MUXwrite(1, 1, 1, 1);//Turns OFF outside light
+	MUXwrite(0, 0, 0, 0);//Turns buzzer off
+	MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
+	MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
+	MUXwrite(1, 0, 1, 1); //Alarm LED turned off
+	calcTempOut(); //initialization of tmpout
+	calcTempIn(); //initialization of tmpin
+	calcTempRoof();
+	CheckAll();
+	alarmReportTimer = millis();
+	tempReportTimer = millis();
 }
 
 //*Changed the order of the MUXwrite-method so it corresponds to the MUX-table in lab4-PDF.
@@ -134,25 +146,6 @@ void MUXwrite(int first, int second, int third, int fourth){
 
 void loop()
 {
-	if (FirstRun){
-		//Serial.println(freeMemory(), DEC);//debug msg
-		MUXwrite(1, 1, 0, 1);//Turns OFF heating element
-		MUXwrite(1, 1, 0, 0);//Turns OFF heating element wind
-		MUXwrite(1, 0, 1, 0);//Turns OFF inside light
-		MUXwrite(1, 1, 1, 1);//Turns OFF outside light
-		MUXwrite(0, 0, 0, 0);//Turns buzzer off
-		MUXwrite(1, 1, 1, 0); //Timer 1 is set to off
-		MUXwrite(1, 0, 0, 1);//Timer2 is used in a loop to prevent random MUX pin values
-		MUXwrite(1, 0, 1, 1); //Alarm LED turned off
-		calcTempOut(); //initialization of tmpout
-		calcTempIn(); //initialization of tmpin
-		calcTempRoof();
-		CheckAll();
-		alarmReportTimer = millis();
-		tempReportTimer = millis();
-		FirstRun = false;
-		//Serial.println(freeMemory(), DEC);//debug msg
-	}
 	//Keeping MUX values stable by setting T2 to off every loop iteration
 	//digitalWrite(MUX12, 1);
 	//digitalWrite(MUX13, 0);
@@ -171,6 +164,9 @@ void loop()
 		}
 		if (saTrig){
 			Serial.println(F("sa_alarm!"));
+		}
+		if (elcutTrig){
+			Serial.println(F("ec_alarm!"));
 		}
 	}
 	if (millis() - tempReportTimer > 12000){
@@ -211,6 +207,15 @@ void loop()
 		}
 		else if (WindowCurrentState == LOW){
 			Serial.println(F("wo_off!"));
+		}
+	}
+	DoorCurrentState = digitalRead(DoorIsOpenedPin);
+	if (DoorIsOpen != DoorCurrentState){
+		if (DoorCurrentState == HIGH){
+			Serial.println(F("do_on!"));
+		}
+		else if (DoorCurrentState == LOW){
+			Serial.println(F("do_off!"));
 		}
 	}
 	if (autolo == true){
@@ -512,14 +517,17 @@ void MsgHandler(String command){
 			autoAC = false;
 		}
 		else{
-			int tempcommandlength = 0;//command.length;
+			byte tempcommandlength = 0;//command.length;
 			if (tempcommandlength < 10){
 				char one = command.charAt(7);
 				char two = command.charAt(8);
-				String oneS = (String)one;
-				String twoS = (String)two;
-				int oneI = oneS.toInt() * 10;
-				int twoI = twoS.toInt();
+				String oneS, twoS;
+				oneS.reserve(3);
+				twoS.reserve(3);
+				oneS = (String)one;
+				twoS = (String)two;
+				byte oneI = oneS.toInt() * 10;
+				byte twoI = twoS.toInt();
 				autoACtmp = oneI + twoI;
 				//Serial.println(autoAC);//debug msg
 				if (autoACtmp < 10 || autoACtmp>40){
@@ -544,13 +552,13 @@ void MsgHandler(String command){
 }
 void CheckAll(){
 	Serial.println(F("autochkstart!"));
-	for (int i = 0; i < size4; i++){
+	for (byte i = 0; i < size4; i++){
 		Serial.println(CheckStatus(allFunctions[i]));
 	}
 	Serial.println(F("eol!"));
 }
 void UpdateDevicesStatus(){
-	for (int i = 0; i < size4; i++){
+	for (byte i = 0; i < size4; i++){
 		CheckStatus(allFunctions[i]);
 	}
 }
@@ -622,9 +630,11 @@ String CheckStatus(String what){
 		ElectricityCut = digitalRead(ElectricityCutPin);
 		if (ElectricityCut == HIGH){
 			//Serial.println(F("ec_on!");
+			elcutTrig = false;
 			return "ec_off!";
 		}
 		else if (ElectricityCut == LOW){
+			elcutTrig = true;
 			return "ec_on!";
 			//Serial.println(F("ec_off!");
 		}
@@ -711,7 +721,7 @@ String CheckStatus(String what){
 			return "autoac_off!";
 		}
 		else{
-			return "autoac_" + (String)autoACtmp +"!";
+			return "autoac_" + (String)autoACtmp + "!";
 		}
 	}
 	else{
@@ -732,49 +742,34 @@ void calcTempOut() {
 }
 
 void calcTempIn(){
-	if (TmpInFirstReading){
-		TmpIn1 = TmpIn2 = TmpIn3 = TmpIn = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
-		TmpInIter = 1;
-		TmpInFirstReading = false;
-	}
-	else if (!TmpInFirstReading){
-		if (TmpInIter == 1){
+	for (byte i = 0; i < 3; i++){
+		if (i == 0){
 			TmpIn1 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
-			TmpInIter = 2;
 		}
-		else if (TmpInIter == 2){
+		if (i == 1){
 			TmpIn2 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
-			TmpInIter = 3;
 		}
-		else if (TmpInIter == 3){
+		if (i == 2){
 			TmpIn3 = (5.0 * analogRead(TempInsidePin) * 100.0) / 1024;
-			TmpInIter = 1;
 		}
 	}
 	TmpIn = (TmpIn1 + TmpIn2 + TmpIn3) / 3;
 }
 void calcTempRoof(){
-	if (TmpRoofFirstReading){
-		TmpRoof1 = TmpRoof2 = TmpRoof3 = TmpRoof = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
-		TmpRoofIter = 1;
-		TmpRoofFirstReading = false;
-	}
-	else if (!TmpRoofFirstReading){
-		if (TmpRoofIter == 1){
+	for (byte i = 0; i < 3; i++){
+		if (i == 0){
 			TmpRoof1 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
-			TmpRoofIter = 2;
 		}
-		else if (TmpRoofIter == 2){
+		if (i == 1){
 			TmpRoof2 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
-			TmpRoofIter = 3;
 		}
-		else if (TmpRoofIter == 3){
+		if (i == 2){
 			TmpRoof3 = (5.0 * analogRead(TmpRoofPin) * 100.0) / 1024;
-			TmpRoofIter = 1;
 		}
 	}
 	TmpRoof = (TmpRoof1 + TmpRoof2 + TmpRoof3) / 3;
 }
+
 void autoAChandler(int temperature){
 	if (temperature > TmpIn){
 		if (temperature > TempOut){
