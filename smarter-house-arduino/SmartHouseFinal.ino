@@ -64,7 +64,7 @@ boolean DoorIsOpen, DoorCurrentState = 0;
 boolean WaterLeakage;
 boolean StoveOn, StoveCurrentState = 0;
 boolean ElectricityCut, elcutTrig = 0;
-byte LDRsensor;
+int LDRsensor;
 byte FanSpeed = 0;
 byte autoACtmp = 0;
 unsigned long alarmReportTimer;
@@ -140,8 +140,8 @@ void MUXwrite(int first, int second, int third, int fourth){
 	digitalWrite(MUX13, second);
 	digitalWrite(MUX11, third);
 	digitalWrite(MUX8, fourth);
-	//Serial.println(F((String)first + " " + (String)second + " " + (String)third + " " + (String)fourth);
-	delay(100);
+	//Serial.println((String)first + " " + (String)second + " " + (String)third + " " + (String)fourth); //debug msg
+	//delay(100);
 }
 
 void loop()
@@ -154,6 +154,8 @@ void loop()
 	//-------------------------------------------------------------------
 	UpdateDevicesStatus();
 	if (millis() - alarmReportTimer > 5000){
+		//Serial.println(alarmReportTimer); //debug msg
+		//Serial.println(tempReportTimer); //debug msg
 		alarmReportTimer = millis();
 		if (wlTrig){
 			Serial.println(F("wl_alarm!"));
@@ -167,6 +169,9 @@ void loop()
 		if (elcutTrig){
 			Serial.println(F("ec_alarm!"));
 		}
+		//Serial.println("LDR: " + (String)analogRead(LDRpin)); //debug msg
+		//Serial.println(LDRsensor);
+		//Serial.println("Power consumtpion: " + (String)(((analogRead(ElConsumptionPin) - 512) * 27.03) / 1023)); //debug msg
 	}
 	if (!elcutTrig){
 		SerialEvent();
@@ -178,6 +183,7 @@ void loop()
 			Serial.println(CheckStatus("tmpout"));
 			Serial.println(CheckStatus("tmpin"));
 			Serial.println(CheckStatus("tmproof"));
+			//Serial.flush();
 			if (autoAC){
 				autoAChandler(autoACtmp);
 			}
@@ -221,22 +227,22 @@ void loop()
 		}
 		if (autolo == true){
 			LDRsensor = analogRead(LDRpin);
-			if (LDRsensor <= 200){
+			if (LDRsensor <= 300 && !loON){
 				MUXwrite(0, 1, 1, 1);
 				loON = true;
 			}
-			else if (LDRsensor > 200){
+			else if (LDRsensor > 300 && loON){
 				MUXwrite(1, 1, 1, 1);
 				loON = false;
 			}
 		}
 		if (autoli == true){
 			LDRsensor = analogRead(LDRpin);
-			if (LDRsensor <= 300){
+			if (LDRsensor <= 300 && !liON){
 				MUXwrite(0, 0, 1, 0);
 				liON = true;
 			}
-			else if (LDRsensor > 300){
+			else if (LDRsensor > 300 && liON){
 				MUXwrite(1, 0, 1, 0);
 				liON = false;
 			}
@@ -445,13 +451,13 @@ void MsgHandler(String command){
 		if (!autoAC){
 			if (command.endsWith("1")){
 				analogWrite(FanPin, 1023);
-				delay(100);
+				//delay(100);
 				analogWrite(FanPin, 341);
 				FanSpeed = 1;
 			}
 			else if (command.endsWith("2")){
 				analogWrite(FanPin, 1023);
-				delay(100);
+				//delay(100);
 				analogWrite(FanPin, 682);
 				FanSpeed = 2;
 			}
@@ -694,7 +700,7 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("elcon")){
-		return "error_THIS CHECK HAS TO BE DEVELOPED elcon";
+		return "error_elcon THIS CHECK HAS TO BE DEVELOPED";
 	}
 	else if (what.equals("tmpin")){
 		return "tmpin_" + (String)TmpIn + "!";

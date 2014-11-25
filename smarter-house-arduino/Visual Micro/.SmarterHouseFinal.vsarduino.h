@@ -52,7 +52,6 @@ void calcTempOut();
 void calcTempIn();
 void calcTempRoof();
 void autoAChandler(int temperature);
-void ElCon();
 
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\cores\arduino\arduino.h"
 #include "C:\Program Files (x86)\Arduino\hardware\arduino\variants\standard\pins_arduino.h" 
