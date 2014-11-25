@@ -1,6 +1,6 @@
-// Device Group proudly presents its part of the work on the
+﻿// Device Group proudly presents its part of the work on the
 // ............SMARTer HOUSE 2014............
-// |--------------------------------------------------------------------------------|
+// |¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯|
 // |@authors: Michal Sitarczuk, Ke Jia, Kevin Hildebrand, Martin Vilhemsson, Shen Wang, Ariful Islam
 // |--------------------------------------------------------------------------------|
 // | VERSION CONTROL HISTORY
@@ -48,7 +48,7 @@ byte PROGMEM MUX8 = 8;
 //int MUXpins[size3] = { MUX12, MUX13, MUX11, MUX8 };
 // ALL HOUSE FUNCTIONS
 #define size4 19 //24
-static const String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "tmpout", "elcon", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
+static const String allFunctions[size4] = { "fa", "do", "wl", "st", "wo", "ec", "elcon", "tmpout", "tmpin", "tmproof", "li", "heatroof", "heatin", "lo", "autoac", "autolo", "sa", "autoli", "fan" }; //, "buzz", "t2", "aled", "t1", "ldr"};//needless
 // String input
 String inMsg = ""; // saves messages from local server until gets "!" which means end of message
 char inChar; // incoming character that is saved in inMsg
@@ -67,8 +67,8 @@ boolean ElectricityCut, elcutTrig = 0;
 byte LDRsensor;
 byte FanSpeed = 0;
 byte autoACtmp = 0;
-unsigned int alarmReportTimer;
-unsigned int tempReportTimer;
+unsigned long alarmReportTimer;
+unsigned long tempReportTimer;
 //Outside temperature digital sensor/////////////////////////////////////////////////////
 float  DutyCycle = 0;                               //DutyCycle that need to calculate  /
 unsigned long  SquareWaveHighTime = 0;				//High time for the square wave     /
@@ -152,7 +152,6 @@ void loop()
 	//digitalWrite(MUX11, 0);
 	//digitalWrite(MUX8, 1);
 	//-------------------------------------------------------------------
-	SerialEvent();
 	UpdateDevicesStatus();
 	if (millis() - alarmReportTimer > 5000){
 		alarmReportTimer = millis();
@@ -169,75 +168,78 @@ void loop()
 			Serial.println(F("ec_alarm!"));
 		}
 	}
-	if (millis() - tempReportTimer > 12000){
-		tempReportTimer = millis();
-		calcTempOut();
-		calcTempIn();
-		calcTempRoof();
-		Serial.println(CheckStatus("tmpout"));
-		Serial.println(CheckStatus("tmpin"));
-		Serial.println(CheckStatus("tmproof"));
-		if (autoAC){
-			autoAChandler(autoACtmp);
+	if (!elcutTrig){
+		SerialEvent();
+		if (millis() - tempReportTimer > 12000){
+			tempReportTimer = millis();
+			calcTempOut();
+			calcTempIn();
+			calcTempRoof();
+			Serial.println(CheckStatus("tmpout"));
+			Serial.println(CheckStatus("tmpin"));
+			Serial.println(CheckStatus("tmproof"));
+			if (autoAC){
+				autoAChandler(autoACtmp);
+			}
+			//Serial.println(freeMemory(), DEC);//debug msg
 		}
-		//Serial.println(freeMemory(), DEC);//debug msg
-	}
-	if (SecurityAlarm){
-		if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
-			MUXwrite(1, 0, 0, 0);
-			saTrig = true;
+		if (SecurityAlarm){
+			if (digitalRead(DoorIsOpenedPin) == LOW || digitalRead(WindowIsOpenedPin) == HIGH){
+				MUXwrite(1, 0, 0, 0);
+				saTrig = true;
+			}
 		}
-	}
-	if (!faTrig && !wlTrig && !saTrig){
-		MUXwrite(0, 0, 0, 0);
-	}
-	StoveCurrentState = digitalRead(StoveOnPin);
-	if (StoveOn != StoveCurrentState){
-		if (StoveCurrentState == HIGH){
-			Serial.println(F("st_on!"));
+		if (!faTrig && !wlTrig && !saTrig){
+			MUXwrite(0, 0, 0, 0);
 		}
-		else if (StoveCurrentState == LOW){
-			Serial.println(F("st_off!"));
+		StoveCurrentState = digitalRead(StoveOnPin);
+		if (StoveOn != StoveCurrentState){
+			if (StoveCurrentState == HIGH){
+				Serial.println(F("st_on!"));
+			}
+			else if (StoveCurrentState == LOW){
+				Serial.println(F("st_off!"));
+			}
 		}
-	}
-	WindowCurrentState = digitalRead(WindowIsOpenedPin);
-	if (WindowIsOpened != WindowCurrentState){
-		if (WindowCurrentState == HIGH){
-			Serial.println(F("wo_on!"));
+		WindowCurrentState = digitalRead(WindowIsOpenedPin);
+		if (WindowIsOpened != WindowCurrentState){
+			if (WindowCurrentState == HIGH){
+				Serial.println(F("wo_on!"));
+			}
+			else if (WindowCurrentState == LOW){
+				Serial.println(F("wo_off!"));
+			}
 		}
-		else if (WindowCurrentState == LOW){
-			Serial.println(F("wo_off!"));
+		DoorCurrentState = digitalRead(DoorIsOpenedPin);
+		if (DoorIsOpen != DoorCurrentState){
+			if (DoorCurrentState == HIGH){
+				Serial.println(F("do_off!"));
+			}
+			else if (DoorCurrentState == LOW){
+				Serial.println(F("do_on!"));
+			}
 		}
-	}
-	DoorCurrentState = digitalRead(DoorIsOpenedPin);
-	if (DoorIsOpen != DoorCurrentState){
-		if (DoorCurrentState == HIGH){
-			Serial.println(F("do_on!"));
+		if (autolo == true){
+			LDRsensor = analogRead(LDRpin);
+			if (LDRsensor <= 200){
+				MUXwrite(0, 1, 1, 1);
+				loON = true;
+			}
+			else if (LDRsensor > 200){
+				MUXwrite(1, 1, 1, 1);
+				loON = false;
+			}
 		}
-		else if (DoorCurrentState == LOW){
-			Serial.println(F("do_off!"));
-		}
-	}
-	if (autolo == true){
-		LDRsensor = analogRead(LDRpin);
-		if (LDRsensor <= 300){
-			MUXwrite(0, 1, 1, 1);
-			loON = true;
-		}
-		else if (LDRsensor > 300){
-			MUXwrite(1, 1, 1, 1);
-			loON = false;
-		}
-	}
-	if (autoli == true){
-		LDRsensor = analogRead(LDRpin);
-		if (LDRsensor <= 300){
-			MUXwrite(0, 0, 1, 0);
-			liON = true;
-		}
-		else if (LDRsensor > 300){
-			MUXwrite(1, 0, 1, 0);
-			liON = false;
+		if (autoli == true){
+			LDRsensor = analogRead(LDRpin);
+			if (LDRsensor <= 300){
+				MUXwrite(0, 0, 1, 0);
+				liON = true;
+			}
+			else if (LDRsensor > 300){
+				MUXwrite(1, 0, 1, 0);
+				liON = false;
+			}
 		}
 	}
 }
@@ -692,7 +694,7 @@ String CheckStatus(String what){
 		}
 	}
 	else if (what.equals("elcon")){
-		return "THIS CHECK HAS TO BE DEVELOPED elcon";
+		return "error_THIS CHECK HAS TO BE DEVELOPED elcon";
 	}
 	else if (what.equals("tmpin")){
 		return "tmpin_" + (String)TmpIn + "!";
