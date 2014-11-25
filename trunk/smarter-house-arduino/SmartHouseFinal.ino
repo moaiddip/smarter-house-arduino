@@ -183,7 +183,7 @@ void loop()
 			Serial.println(CheckStatus("tmpout"));
 			Serial.println(CheckStatus("tmpin"));
 			Serial.println(CheckStatus("tmproof"));
-			//Serial.flush();
+			Serial.flush();
 			if (autoAC){
 				autoAChandler(autoACtmp);
 			}
